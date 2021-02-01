@@ -1,10 +1,11 @@
 //use super::config::*;
 
 
-trait Value {
-
+pub trait Value {
+    fn eval(&self) -> Self;
 }
 
+#[derive(Debug)]
 pub enum Object {
     Nil,
     Integer(i32),
