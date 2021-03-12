@@ -8,4 +8,5 @@ fn main() {
     memo.insert(3, abyss::Object::Nil);
     println!("This is abyss");
     println!("{:?}", memo);
+    println!("{}", memo[&2]);
 }
