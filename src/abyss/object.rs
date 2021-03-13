@@ -4,7 +4,7 @@ use std::fmt;
 
 pub type Env = std::collections::HashMap<String, Object>;
 
-pub trait CustomObj {
+pub trait CustomObj: CustomObjClone {
     fn about(&self) -> String;
 }
 
@@ -14,7 +14,7 @@ pub trait SExpr {
 
 
 
-trait CustomObjClone {
+pub trait CustomObjClone {
     fn clone_boxed_obj(&self) -> Box<dyn CustomObj>;
 }
 
@@ -22,6 +22,12 @@ impl<T> CustomObjClone for T
     where T: 'static + CustomObj + Clone {
     fn clone_boxed_obj(&self) -> Box<dyn CustomObj> {
         Box::new(self.clone())
+    }
+}
+
+impl Clone for Box<dyn CustomObj> {
+    fn clone(&self) -> Box<dyn CustomObj> {
+        self.clone_boxed_obj()
     }
 }
 
@@ -51,7 +57,7 @@ impl Clone for Object {
             Real(n) => Real(*n),
             Str(s) => Str(s.clone()),
             List(os) => List(os.clone()),
-            Custom(_) => self.clone()
+            Custom(obj) => Custom(obj.clone())
         }
     }
 }
