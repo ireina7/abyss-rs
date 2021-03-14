@@ -1,11 +1,12 @@
 use std::fmt;
+use std::cmp;
 use super::config::*;
 
 
 pub type Env = HashMap<String, Object>;
 
 pub struct EvalError {
-    msg: String
+    pub msg: String
 }
 pub trait CustomObj: fmt::Display + fmt::Debug + CustomObjClone {
     fn eval(&self, env: &mut Env) -> Result<Object, EvalError>;
@@ -60,6 +61,26 @@ impl Clone for Object {
         }
     }
 }
+
+impl cmp::PartialEq for Object {
+    #[allow(dead_code)]
+    #[allow(unused_variables)]
+    fn eq(&self, other: &Self) -> bool {
+        use Object::*;
+        match (self, other) {
+            (Nil, Nil) => true,
+            (Var(x),     Var(y))     => x == y,
+            (Symbol(x),  Symbol(y))  => x == y,
+            (Integer(x), Integer(y)) => x == y,
+            (Real(x),    Real(y))    => x == y,
+            (Str(x),     Str(y))     => x == y,
+            (List(xs),   List(ys))   => false,
+            (Custom(x),  Custom(y))  => false,
+            _ => false
+        }
+    }
+}
+
 
 
 

@@ -18,6 +18,7 @@ impl SExpr for Object {
             Integer(_) => Ok(self.clone()),
             Real(_) => Ok(self.clone()),
             Str(_) => Ok(self.clone()),
+            List(__) => Ok(Nil),
             _ => Ok(self.clone())
         }
     }
