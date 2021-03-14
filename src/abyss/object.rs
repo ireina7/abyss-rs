@@ -1,15 +1,14 @@
 use std::fmt;
+use super::config::*;
 
 
+pub type Env = HashMap<String, Object>;
 
-pub type Env = std::collections::HashMap<String, Object>;
-
-pub trait CustomObj: CustomObjClone {
-    fn about(&self) -> String;
+pub struct EvalError {
+    msg: String
 }
-
-pub trait SExpr {
-    fn eval(&self, env: &mut Env) -> Self;
+pub trait CustomObj: fmt::Display + fmt::Debug + CustomObjClone {
+    fn eval(&self, env: &mut Env) -> Result<Object, EvalError>;
 }
 
 
@@ -32,7 +31,7 @@ impl Clone for Box<dyn CustomObj> {
 }
 
 
-//#[derive(Clone)]
+
 #[allow(dead_code)]
 pub enum Object {
     Nil,
@@ -62,49 +61,37 @@ impl Clone for Object {
     }
 }
 
-impl SExpr for Object {
-    fn eval(&self, _env: &mut Env) -> Self {
-        use Object::*;
-        match self {
-            Nil => self,
-            Var(_) => self,
-            Symbol(_) => self,
-            Integer(_) => self,
-            Real(_) => self,
-            Str(_) => self,
-            _ => self
-        }.clone()
-    }
-}
 
 
 
 impl fmt::Debug for Object {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use Object::*;
         match self {
-            Object::Nil        => write!(f, "Nil"),
-            Object::Var(s)     => write!(f, "Var({})", s),
-            Object::Symbol(s)  => write!(f, "{}", s),
-            Object::Integer(i) => write!(f, "Integer({})", i),
-            Object::Real(n)    => write!(f, "Real({})", n),
-            Object::Str(s)     => write!(f, "Str({})", s),
-            Object::List(xs)   => write!(f, "{}", format!("{}{}{}", "(", &xs.iter().map(|o| format!("{:?}", o)).collect::<Vec<_>>().join(" "), ")")),
-            Object::Custom(o)  => write!(f, "{}", o.about())
+            Nil        => write!(f, "Nil"),
+            Var(s)     => write!(f, "Var({})", s),
+            Symbol(s)  => write!(f, "{}", s),
+            Integer(i) => write!(f, "Integer({})", i),
+            Real(n)    => write!(f, "Real({})", n),
+            Str(s)     => write!(f, "Str({})", s),
+            List(xs)   => write!(f, "{}", format!("{}{}{}", "(", &xs.iter().map(|o| format!("{:?}", o)).collect::<Vec<_>>().join(" "), ")")),
+            Custom(o)  => write!(f, "{}", o)
         }
     }
 }
 
 impl fmt::Display for Object {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use Object::*;
         match self {
-            Object::Nil        => write!(f, "()"),
-            Object::Var(s)     => write!(f, "{}", s),
-            Object::Symbol(s)  => write!(f, "{}", s),
-            Object::Integer(i) => write!(f, "{}", i),
-            Object::Real(n)    => write!(f, "{}", n),
-            Object::Str(s)     => write!(f, "\"{}\"", s),
-            Object::List(xs)   => write!(f, "{}", format!("{}{}{}", "(", &xs.iter().map(|o| format!("{}", o)).collect::<Vec<_>>().join(" "), ")")),
-            Object::Custom(o)  => write!(f, "{}", o.about()),
+            Nil        => write!(f, "()"),
+            Var(s)     => write!(f, "{}", s),
+            Symbol(s)  => write!(f, "{}", s),
+            Integer(i) => write!(f, "{}", i),
+            Real(n)    => write!(f, "{}", n),
+            Str(s)     => write!(f, "\"{}\"", s),
+            List(xs)   => write!(f, "{}", format!("{}{}{}", "(", &xs.iter().map(|o| format!("{}", o)).collect::<Vec<_>>().join(" "), ")")),
+            Custom(o)  => write!(f, "{}", o),
         }
     }
 }
@@ -122,11 +109,16 @@ impl fmt::Display for Object {
 mod tests {
     use super::*;
 
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     struct DummyCustomObj;
+    impl fmt::Display for DummyCustomObj {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "example user defined object")
+        }
+    }
     impl CustomObj for DummyCustomObj {
-        fn about(&self) -> String {
-            "Custom object example".into()
+        fn eval(&self, _env: &mut Env) -> Result<Object, EvalError> {
+            Ok(Object::Nil)
         }
     }
     #[test]
@@ -143,7 +135,7 @@ mod tests {
         assert_eq!(format!("{:?}", num), "Real(0.7)");
         assert_eq!(format!("{:?}", sss), "Str(test_str)");
         assert_eq!(format!("{:?}", osx), "(Str(+) Real(0.7) Real(2))");
-        assert_eq!(format!("{:?}", obj), "Custom object example");
+        assert_eq!(format!("{:?}", obj), "example user defined object");
     }
     #[test]
     fn test_object_display_print() {
@@ -159,6 +151,6 @@ mod tests {
         assert_eq!(format!("{}", num), "0.7");
         assert_eq!(format!("{}", sss), "\"test_str\"");
         assert_eq!(format!("{}", osx), "(+ 0.7 2)");
-        assert_eq!(format!("{}", obj), "Custom object example");
+        assert_eq!(format!("{}", obj), "example user defined object");
     }
 }
