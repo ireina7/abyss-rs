@@ -9,11 +9,6 @@ pub struct Pos {
     pub col: usize,
     pub row: usize
 }
-impl Pos {
-    fn new(x: usize, y: usize) -> Self {
-        Pos { row: x, col: y }
-    }
-}
 
 #[derive(PartialEq, Debug)]
 pub struct ParseError {
@@ -253,11 +248,11 @@ fn parse_str(src: &str) -> Result<Object, ParseError> {
 #[allow(unused_macros)]
 #[macro_use]
 macro_rules! do_parse {
-    ($x:ident <- $e:expr, -> $exp:expr) => {
+    ($x:pat = $e:expr, => $exp:expr) => {
         $e.and_then(move |$x| $exp)
     };
-    ($x:ident <- $e:expr, $($y:ident <- $es:expr),+, -> $exp:expr) => {
-        $e.and_then(move |$x| do_parse!($($y <- $es),+, -> $exp))
+    ($x:pat = $e:expr, $($y:pat = $es:expr),+, => $exp:expr) => {
+        $e.and_then(move |$x| do_parse!($($y = $es),+, => $exp))
     };
 }
 
@@ -295,11 +290,11 @@ mod tests {
     fn test_parser_monad_do_notation() {
         let mut src = ParseState::new("a0bcdefghijklmn");
         let ans = do_parse! {
-            a <- char('a'),
-            i <- digit(),
-            b <- char('b'),
+            a = char('a'),
+            _ = digit(),
+            b = char('b'),
 
-            -> satisfy(move |&c| c == a || c == b || c == 'c')
+            => satisfy(move |&c| c == a || c == b || c == 'c')
         };
         assert_eq!(ans.parse(&mut src), Ok('c'));
     }
