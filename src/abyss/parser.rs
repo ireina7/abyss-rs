@@ -55,6 +55,7 @@ impl<'a> Iterator for ParseState<'a> {
 
 
 pub trait Parser {
+
     type Output;
     fn parse<'a>(&self, state: &mut ParseState<'a>) -> Result<Self::Output, ParseError>;
 
@@ -73,6 +74,22 @@ pub trait Parser {
 
         AndThen { parser: self, f: f }
     }
+    fn info(self, msg: &str) -> Logger<Self> where
+        Self: Sized {
+        Logger { parser: self, msg: msg.into() }
+    }
+}
+
+
+#[allow(unused_macros)]
+#[macro_use]
+macro_rules! do_parse {
+    ($x:pat =o $e:expr, =o $exp:expr) => {
+        $e.and_then(move |$x| $exp)
+    };
+    ($x:pat =o $e:expr, $($y:pat =o $es:expr),+, =o $exp:expr) => {
+        $e.and_then(move |$x| do_parse!($($y =o $es),+, =o $exp))
+    };
 }
 
 
@@ -85,6 +102,26 @@ impl FromStr for Object {
 
 
 
+#[derive(Clone, Debug)]
+pub struct Logger<P> {
+    parser: P,
+    msg: String
+}
+
+impl<P: Parser> Parser for Logger<P> {
+
+    type Output = P::Output;
+    fn parse<'a>(&self, state: &mut ParseState<'a>) -> Result<Self::Output, ParseError> {
+        match self.parser.parse(state) {
+            ok @ Ok(_) => ok,
+            Err(ParseError { msg: _, pos }) => Err(ParseError { msg: self.msg.clone(), pos: pos })
+        }
+    }
+}
+
+
+
+#[derive(Clone, Debug)]
 pub struct Satisfy<F> {
     satisfy: F,
     msg: String
@@ -115,7 +152,7 @@ pub fn satisfy<F>(f: F) -> Satisfy<F> where
     Satisfy { satisfy: f, msg: "unknown".into() }
 }
 
-
+#[derive(Clone, Debug)]
 pub struct And<A, B> {
     a: A,
     b: B
@@ -128,7 +165,7 @@ impl<A: Parser, B: Parser> Parser for And<A, B> {
         self.b.parse(state)
     }
 }
-
+#[derive(Clone, Debug)]
 pub struct Or<A, B> {
     a: A,
     b: B
@@ -149,7 +186,7 @@ impl<A, B> Parser for Or<A, B> where
         self.b.parse(state)
     }
 }
-
+#[derive(Clone, Debug)]
 pub struct AndThen<P, F> {
     parser: P,
     f: F
@@ -162,16 +199,15 @@ impl<A, B, F> Parser for AndThen<A, F> where
 
     type Output = B::Output;
     fn parse<'a>(&self, state: &mut ParseState<'a>) -> Result<Self::Output, ParseError> {
-        let f = &self.f;
         let x = self.parser.parse(state)?;
-        f(x).parse(state)
+        (self.f)(x).parse(state)
     }
 }
 
 
 
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct Char {
     ch: char
 }
@@ -188,14 +224,119 @@ impl Parser for Char {
     }
 }
 
+
+
+#[derive(Clone, Debug)]
+pub struct Pure<A: Clone> {
+    x: A
+}
+
+impl<A: Clone> Parser for Pure<A> {
+    type Output = A;
+    fn parse<'a>(&self, _state: &mut ParseState<'a>) -> Result<Self::Output, ParseError> {
+        Ok(self.x.clone())
+    }
+}
+
+pub fn pure<A: Clone>(x: A) -> Pure<A> {
+    Pure { x: x }
+}
+
+
+#[derive(Clone, Debug)]
+pub struct Many<P> {
+    parser: P,
+}
+
+impl<P> Parser for Many<P> where
+    P: Parser {
+
+    type Output = Vec<P::Output>;
+    fn parse<'a>(&self, state: &mut ParseState<'a>) -> Result<Self::Output, ParseError> {
+        let mut vec = vec![];
+        let mut tmp = state.clone();
+        while let Ok(a) = self.parser.parse(state) {
+            vec.push(a);
+            tmp = state.clone();
+        }
+        *state = tmp;
+        Ok(vec)
+    }
+}
+
+fn many<P: Parser>(p: P) -> Many<P> {
+    Many { parser: p }
+}
+
+#[derive(Clone, Debug)]
+pub struct Many1<P> {
+    parser: P
+}
+
+impl<P: Parser> Parser for Many1<P> {
+    type Output = Vec<P::Output>;
+
+    fn parse<'a>(&self, state: &mut ParseState<'a>) -> Result<Self::Output, ParseError> {
+        let mut vec = vec![];
+        let a = self.parser.parse(state)?;
+        vec.push(a);
+        let mut tmp = state.clone();
+        while let Ok(a) = self.parser.parse(state) {
+            vec.push(a);
+            tmp = state.clone();
+        }
+        *state = tmp;
+        Ok(vec)
+    }
+}
+
+
+fn at_least_1<P: Parser>(p: P) -> Many1<P> {
+    Many1 { parser: p }
+}
+
+fn many1<P: Parser>(p: P) -> Many1<P> {
+    at_least_1(p)
+}
+
+
+
+
+
+
+
+
+
+
 pub fn char(ch: char) -> Char {
     Char { ch }
 }
 
+pub fn digit() -> impl Parser<Output=char> + Clone {
 
-pub fn digit() -> Satisfy<impl Fn(&char) -> bool> {
-    satisfy(|&c| ('0'..'9').any(|d| d == c))
+    satisfy(|&c| ('0'..'9').any(|d| d == c)).info("Parsing single digit")
 }
+pub fn digits() -> impl Parser<Output=Vec<char>> + Clone {
+
+    many(digit()).info("Parsing many digits")
+}
+
+pub fn letter() -> impl Parser<Output=char> + Clone {
+    satisfy(|&c| c.is_alphabetic()).info("Parsing letter")
+}
+
+pub fn identifier() -> impl Parser<Output=Vec<char>> + Clone {
+
+    letter()
+        .and_then(move |x_| many(letter().or(digit()).or(char('_')))
+                  .and_then(move |xs| pure(vec![x_].into_iter().chain(xs.into_iter()).collect())))
+        .info("Parsing identifier")
+
+}
+
+
+
+
 
 
 
@@ -245,17 +386,6 @@ fn parse_str(src: &str) -> Result<Object, ParseError> {
 }
 
 
-#[allow(unused_macros)]
-#[macro_use]
-macro_rules! do_parse {
-    ($x:pat = $e:expr, => $exp:expr) => {
-        $e.and_then(move |$x| $exp)
-    };
-    ($x:pat = $e:expr, $($y:pat = $es:expr),+, => $exp:expr) => {
-        $e.and_then(move |$x| do_parse!($($y = $es),+, => $exp))
-    };
-}
-
 
 
 
@@ -289,14 +419,39 @@ mod tests {
     #[test]
     fn test_parser_monad_do_notation() {
         let mut src = ParseState::new("a0bcdefghijklmn");
-        let ans = do_parse! {
-            a = char('a'),
-            _ = digit(),
-            b = char('b'),
+        let parser = do_parse! {
+            a =o char('a'),
+            _ =o digit()  ,
+            b =o char('b'),
 
-            => satisfy(move |&c| c == a || c == b || c == 'c')
+            =o satisfy(move |&c| c == a || c == b || c == 'c')
         };
-        assert_eq!(ans.parse(&mut src), Ok('c'));
+        assert_eq!(parser.parse(&mut src), Ok('c'));
+    }
+
+    #[test]
+    fn test_parser_many() {
+        let mut src = ParseState::new("aa0bcdefghijklmn");
+        let parser = many(char('a'));
+        assert_eq!(parser.parse(&mut src), Ok(vec!['a', 'a']));
+    }
+
+    #[test]
+    fn test_parser_many1() {
+        let mut src = ParseState::new("aa01bcdefghijklmn");
+        let parser0 = at_least_1(char('a'));
+        let parser1 = digits();
+        let parser2 = many1(char('a'));
+        assert_eq!(parser0.parse(&mut src), Ok(vec!['a', 'a']));
+        assert_eq!(parser1.parse(&mut src), Ok(vec!['0', '1']));
+        assert_eq!(parser2.parse(&mut src).ok(), None);
+    }
+
+    #[test]
+    fn test_parser_identifier() {
+        let mut src = ParseState::new("hello0%");
+        let parser = identifier();
+        assert_eq!(parser.parse(&mut src), Ok(vec!['h', 'e', 'l', 'l', 'o', '0']));
     }
 
 }
