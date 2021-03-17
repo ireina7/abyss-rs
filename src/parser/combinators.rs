@@ -40,8 +40,8 @@ pub fn identifier() -> Wrapper<impl Parser<Output=String> + Clone> {
 pub fn identifiers_sep_by_blank() -> Wrapper<impl Parser<Output=Vec<String>> + Clone> {
 
     wrap(many(
-        identifier()  >> move |x|
-        many(blank()) >> move |_|
+        identifier() >> move |x|
+        blank()      >> move |_|
         pure(x.clone()).info("Parsing identifiers")))
 }
 
@@ -54,7 +54,15 @@ pub fn list_of_identifiers_sep_by_blank() -> Wrapper<impl Parser<Output=Vec<Stri
         pure(s.clone()).info("Parsing list of identifiers"))
 }
 
+pub fn list<P: Parser<Output=char> + Clone>(p: Wrapper<P>) -> Wrapper<impl Parser<Output=char> + Clone> {
 
+    wrap(
+        char('(') >> move |_|
+        p.clone() >> move |_|
+        char(')') >> move |c|
+        pure(c)
+    )
+}
 
 
 
