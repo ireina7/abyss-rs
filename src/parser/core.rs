@@ -77,9 +77,13 @@ pub trait Parser {
 
         AndThen { parser: self, f: f }
     }
-    fn info(self, msg: &str) -> Logger<Self> where
+    fn info(self, msg: &str) -> Wrapper<Logger<Self>> where
         Self: Sized {
-        Logger { parser: self, msg: msg.into() }
+        wrap(Logger { parser: self, msg: msg.into() })
+    }
+    fn wrap(self) -> Wrapper<Self> where
+        Self: Sized {
+        wrap(self)
     }
 }
 

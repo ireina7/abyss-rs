@@ -9,49 +9,49 @@ pub fn char(ch: char) -> Char {
 
 pub fn digit() -> Wrapper<impl Parser<Output=char> + Clone> {
 
-    wrap(satisfy(|&c| ('0'..'9').any(|d| d == c)).info("Parsing single digit"))
+    satisfy(|&c| ('0'..'9').any(|d| d == c)).info("Parsing single digit")
 }
 pub fn digits() -> Wrapper<impl Parser<Output=Vec<char>> + Clone> {
 
-    wrap(many(digit()).info("Parsing many digits"))
+    many(digit()).info("Parsing many digits")
 }
 
 pub fn letter() -> Wrapper<impl Parser<Output=char> + Clone> {
-    wrap(satisfy(|&c| c.is_alphabetic()).info("Parsing single letter"))
+    satisfy(|&c| c.is_alphabetic()).info("Parsing single letter")
 }
 
 pub fn letters() -> Wrapper<impl Parser<Output=Vec<char>> + Clone> {
-    wrap(many(letter()).info("Parsing many letters"))
+    many(letter()).info("Parsing many letters")
 }
 
 pub fn blank() -> Wrapper<impl Parser<Output=String> + Clone> {
-    wrap(many(char(' ') | char('\t') | char('\n')).map(|xs| xs.into_iter().collect()))
+    many(char(' ') | char('\t') | char('\n')).map(|xs| xs.into_iter().collect()).wrap()
 }
 
 pub fn identifier() -> Wrapper<impl Parser<Output=String> + Clone> {
 
-    wrap(
-        letter()                                 >> move |x_|
-        many(letter().or(digit()).or(char('_'))) >> move |xs|
-        pure(vec![x_].into_iter().chain(xs.into_iter()).collect::<String>())
-            .info("Parsing identifier"))
+    (letter()                                 >> move |x_|
+     many(letter().or(digit()).or(char('_'))) >> move |xs|
+     pure(vec![x_].into_iter().chain(xs.into_iter()).collect::<String>()))
+        .info("Parsing identifier")
 }
 
 pub fn identifiers_sep_by_blank() -> Wrapper<impl Parser<Output=Vec<String>> + Clone> {
 
-    wrap(many(
+    many(
         identifier() >> move |x|
         blank()      >> move |_|
-        pure(x.clone()).info("Parsing identifiers")))
+        pure(x.clone()))
+        .info("Parsing identifiers")
 }
 
 pub fn list_of_identifiers_sep_by_blank() -> Wrapper<impl Parser<Output=Vec<String>> + Clone> {
 
-    wrap(
-        char('(')                  >> move |_|
-        identifiers_sep_by_blank() >> move |s|
-        char(')')                  >> move |_|
-        pure(s.clone()).info("Parsing list of identifiers"))
+    (char('(')                  >> move |_|
+     identifiers_sep_by_blank() >> move |s|
+     char(')')                  >> move |_|
+     pure(s.clone()))
+        .info("Parsing list of identifiers")
 }
 
 pub fn list<P: Parser<Output=char> + Clone>(p: Wrapper<P>) -> Wrapper<impl Parser<Output=char> + Clone> {
