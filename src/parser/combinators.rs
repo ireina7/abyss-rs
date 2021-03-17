@@ -1,4 +1,5 @@
 use super::core::*;
+//use super::ops::*;
 use crate::do_parse;
 
 
@@ -6,48 +7,51 @@ pub fn char(ch: char) -> Char {
     Char { ch }
 }
 
-pub fn digit() -> impl Parser<Output=char> + Clone {
+pub fn digit() -> Wrapper<impl Parser<Output=char> + Clone> {
 
-    satisfy(|&c| ('0'..'9').any(|d| d == c)).info("Parsing single digit")
+    wrap(satisfy(|&c| ('0'..'9').any(|d| d == c)).info("Parsing single digit"))
 }
-pub fn digits() -> impl Parser<Output=Vec<char>> + Clone {
+pub fn digits() -> Wrapper<impl Parser<Output=Vec<char>> + Clone> {
 
-    many(digit()).info("Parsing many digits")
-}
-
-pub fn letter() -> impl Parser<Output=char> + Clone {
-    satisfy(|&c| c.is_alphabetic()).info("Parsing single letter")
+    wrap(many(digit()).info("Parsing many digits"))
 }
 
-pub fn letters() -> impl Parser<Output=Vec<char>> + Clone {
-    many(letter()).info("Parsing many letters")
+pub fn letter() -> Wrapper<impl Parser<Output=char> + Clone> {
+    wrap(satisfy(|&c| c.is_alphabetic()).info("Parsing single letter"))
 }
 
-pub fn identifier() -> impl Parser<Output=String> + Clone {
-
-    letter()
-        .and_then(move |x_| many(letter().or(digit()).or(char('_')))
-                  .and_then(move |xs| pure(vec![x_].into_iter().chain(xs.into_iter()).collect::<String>())))
-        .info("Parsing identifier")
+pub fn letters() -> Wrapper<impl Parser<Output=Vec<char>> + Clone> {
+    wrap(many(letter()).info("Parsing many letters"))
 }
 
-pub fn identifiers_sep_by_blank() -> impl Parser<Output=Vec<String>> + Clone {
-
-    many( do_parse! {
-        x =o identifier(),
-        _ =o many(char(' ').or(char('\t')).or(char('\n'))),
-          =o pure(x.clone())
-    }).info("Parsing identifiers")
+pub fn blank() -> Wrapper<impl Parser<Output=String> + Clone> {
+    wrap(many(char(' ') | char('\t') | char('\n')).map(|xs| xs.into_iter().collect()))
 }
 
-pub fn list_of_identifiers_sep_by_blank() -> impl Parser<Output=Vec<String>> + Clone {
+pub fn identifier() -> Wrapper<impl Parser<Output=String> + Clone> {
 
-    (do_parse! {
-        _ =o char('('),
-        s =o identifiers_sep_by_blank(),
-        _ =o char(')'),
-          =o pure(s.clone())
-    }).info("Parsing list of identifiers")
+    wrap(
+        letter()                                 >> move |x_|
+        many(letter().or(digit()).or(char('_'))) >> move |xs|
+        pure(vec![x_].into_iter().chain(xs.into_iter()).collect::<String>())
+            .info("Parsing identifier"))
+}
+
+pub fn identifiers_sep_by_blank() -> Wrapper<impl Parser<Output=Vec<String>> + Clone> {
+
+    wrap(many(
+        identifier()  >> move |x|
+        many(blank()) >> move |_|
+        pure(x.clone()).info("Parsing identifiers")))
+}
+
+pub fn list_of_identifiers_sep_by_blank() -> Wrapper<impl Parser<Output=Vec<String>> + Clone> {
+
+    wrap(
+        char('(')                  >> move |_|
+        identifiers_sep_by_blank() >> move |s|
+        char(')')                  >> move |_|
+        pure(s.clone()).info("Parsing list of identifiers"))
 }
 
 
@@ -128,5 +132,12 @@ mod tests {
         let mut src = ParseState::new("(Hello world)");
         let parser = list_of_identifiers_sep_by_blank();
         assert_eq!(parser.parse(&mut src), Ok(vec!["Hello", "world"].into_iter().map(|s| s.into()).collect()));
+    }
+
+    #[test]
+    fn test_parser_blank() {
+        let mut src = ParseState::new("(   )");
+        let parser = char('(').and(blank());
+        assert_eq!(parser.parse(&mut src).ok(), Some("   ".into()));
     }
 }

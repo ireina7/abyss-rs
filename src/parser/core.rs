@@ -62,7 +62,7 @@ pub trait Parser {
 
         And { a: self, b: other }
     }
-    fn or<P: Parser>(self, other: P) -> Or<Self, P> where
+    fn or<P>(self, other: P) -> Or<Self, P> where
         Self: Sized, P: Parser<Output=Self::Output> {
 
         Or { a: self, b: other }
@@ -105,6 +105,28 @@ impl<P: Parser> Parser for Logger<P> {
 }
 
 
+#[derive(Clone, Debug)]
+pub struct Wrapper<T: Parser> {
+    parser: T
+}
+impl<T: Parser> Wrapper<T> {
+    pub fn new(p: T) -> Self {
+        Wrapper { parser: p }
+    }
+}
+impl<P: Parser> Parser for Wrapper<P> {
+
+    type Output = P::Output;
+    fn parse<'a>(&self, state: &mut ParseState<'a>) -> Result<Self::Output, ParseError> {
+        self.parser.parse(state)
+    }
+}
+
+pub fn wrap<P: Parser>(p: P) -> Wrapper<P> {
+    Wrapper::new(p)
+}
+
+
 
 #[derive(Clone, Debug)]
 pub struct Satisfy<F> {
@@ -142,7 +164,12 @@ pub struct And<A, B> {
     a: A,
     b: B
 }
-
+impl<A, B> And<A, B> {
+    #[allow(dead_code)]
+    pub fn new(a: A, b: B) -> Self {
+        And { a: a, b: b }
+    }
+}
 impl<A: Parser, B: Parser> Parser for And<A, B> {
     type Output = B::Output;
     fn parse<'a>(&self, state: &mut ParseState<'a>) -> Result<Self::Output, ParseError> {
@@ -155,7 +182,11 @@ pub struct Or<A, B> {
     a: A,
     b: B
 }
-
+impl<A, B> Or<A, B> {
+    pub fn new(a: A, b: B) -> Self {
+        Or { a: a, b: b }
+    }
+}
 impl<A, B> Parser for Or<A, B> where
     A: Parser,
     B: Parser<Output=A::Output> {
@@ -176,7 +207,11 @@ pub struct AndThen<P, F> {
     parser: P,
     f: F
 }
-
+impl<P, F> AndThen<P, F> {
+    pub fn new(p: P, f: F) -> Self {
+        AndThen { parser: p, f: f }
+    }
+}
 impl<A, B, F> Parser for AndThen<A, F> where
     A: Parser,
     B: Parser,

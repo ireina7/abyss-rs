@@ -1,7 +1,7 @@
 #![macro_use]
 
 #[allow(unused_macros)]
-#[macro_use]
+//#[macro_use]
 #[macro_export]
 macro_rules! do_parse {
     ($x:pat =o $e:expr, =o $exp:expr) => {
