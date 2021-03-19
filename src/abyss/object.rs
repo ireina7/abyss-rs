@@ -91,7 +91,7 @@ impl fmt::Debug for Object {
         match self {
             Nil        => write!(f, "Nil"),
             Var(s)     => write!(f, "Var({})", s),
-            Symbol(s)  => write!(f, "{}", s),
+            Symbol(s)  => write!(f, "Symbol({})", s),
             Integer(i) => write!(f, "Integer({})", i),
             Real(n)    => write!(f, "Real({})", n),
             Str(s)     => write!(f, "Str({})", s),

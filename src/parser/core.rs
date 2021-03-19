@@ -384,6 +384,6 @@ impl Parser for ParseString {
 }
 
 //Should not use currently
-pub fn string(s: &str) -> ParseString {
+fn string(s: &str) -> ParseString {
     ParseString { s: s.into() }
 }

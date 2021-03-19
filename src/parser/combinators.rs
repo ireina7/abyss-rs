@@ -9,7 +9,7 @@ pub fn char(ch: char) -> Char {
 
 pub fn digit() -> Wrapper<impl Parser<Output=char> + Clone> {
 
-    satisfy(|&c| ('0'..'9').any(|d| d == c)).info("Parsing single digit")
+    satisfy(|&c| c.is_digit(10)).info("Parsing single digit")
 }
 pub fn digits() -> Wrapper<impl Parser<Output=Vec<char>> + Clone> {
 
@@ -120,14 +120,14 @@ mod tests {
         let parser = identifier();
         assert_eq!(parser.parse(&mut src), Ok("hello0".into()));
     }
-
+    /*
     #[test]
     fn test_parser_string() {
         let mut src = ParseState::new("hello0%");
         let parser = string("hell");
         assert_eq!(parser.parse(&mut src).ok(), Some("hell".into()));
         //assert_eq!(src.next(), Some('o'));
-    }
+    }*/
 
     #[test]
     fn test_parser_map() {
