@@ -1,4 +1,5 @@
 use std::str::Chars;
+use std::rc::Rc;
 
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -7,7 +8,7 @@ pub struct Pos {
     pub row: usize
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Clone, Debug)]
 pub struct ParseError {
     pub msg: String,
     pub pos: Pos
@@ -246,6 +247,30 @@ impl<A, B, F> Parser for Map<A, F> where
 }
 
 
+// (Fix f).parse() = (f (Fix f)).parse()
+pub struct Fix<'a, A> {
+    fix: Rc<dyn for<'f> Fn(&'f Self) -> Box<dyn Parser<Output=A> + 'f> + 'a>
+}
+
+impl<A> Parser for Fix<'_, A> {
+
+    type Output = A;
+    fn parse<'a>(&self, state: &mut ParseState<'a>) -> Result<Self::Output, ParseError> {
+        (self.fix)(self).parse(state)
+    }
+}
+
+impl<A> Clone for Fix<'_, A> {
+    fn clone(&self) -> Self {
+        Fix { fix: self.fix.clone() }
+    }
+}
+
+pub fn fix<'a, A, F>(fix: F) -> Fix<'a, A> where
+    F: for<'f> Fn(&'f Fix<'a, A>) -> Box<dyn Parser<Output=A> + 'f> + 'a {
+
+    Fix { fix: Rc::new(fix) }
+}
 
 
 

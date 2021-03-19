@@ -1,5 +1,5 @@
 use super::object::Object;
-use crate::do_parse;
+//use crate::do_parse;
 use crate::parser::*;
 use crate::parser::combinators::*;
 use std::str::{ FromStr };
@@ -15,43 +15,17 @@ impl FromStr for Object {
 
 
 
-
 fn parse_to_object(src: &str) -> Result<Object, ParseError> {
-    let _ = src.trim();
+    let mut src = ParseState::new(src.trim());
+    let parser = identifier().map(|s| Object::Var(s)) | fix(|f| Box::new (
+        char('(') >> move |_|
+        many((identifier() >> move |s| blank() >> move |_| pure(Object::Var(s.clone()))) | f.clone()) >> move |xs|
+        char(')').and(blank()) >> move |_|
+        pure(Object::List(xs.clone()))
+    ));
 
-    Ok(Object::Nil)
+    parser.parse(&mut src)
 }
-#[allow(dead_code)]
-#[allow(unused_variables)]
-fn parse_var(src: &str) -> Result<Object, ParseError> {
-    let ss = src.trim();
-    let of = |i| ss.chars().nth(i).unwrap();
-    if !(ss.len() > 0 && of(0) != '(' && of(0) != ')') {
-        return Err(ParseError { msg: "".into(), pos: Pos { row: 0, col: 0 } });
-    }
-    Ok(Object::Nil)
-}
-#[allow(dead_code)]
-#[allow(unused_variables)]
-fn parse_int(src: &str) -> Result<Object, ParseError> {
-    unimplemented!()
-}
-#[allow(dead_code)]
-#[allow(unused_variables)]
-fn parse_num(src: &str) -> Result<Object, ParseError> {
-    unimplemented!()
-}
-#[allow(dead_code)]
-#[allow(unused_variables)]
-fn parse_sym(src: &str) -> Result<Object, ParseError> {
-    unimplemented!()
-}
-#[allow(dead_code)]
-#[allow(unused_variables)]
-fn parse_str(src: &str) -> Result<Object, ParseError> {
-    unimplemented!()
-}
-
 
 
 
@@ -63,13 +37,22 @@ mod tests {
 
     #[test]
     fn test_parse() {
-        let mut src = ParseState::new("abcdefghijklmn");
-        assert_eq!(char('a').parse(&mut src), Ok('a'));
-        assert_eq!(satisfy_of("Should equal 'b'", |&c| c == 'b').parse(&mut src), Ok('b'));
-        assert_eq!(satisfy(|&c| c == 'c').parse(&mut src), Ok('c'));
-        assert_eq!(char('i').or(char('d')).parse(&mut src), Ok('d'));
-        assert_eq!(char('e').and(char('f')).parse(&mut src), Ok('f'));
-        assert_eq!(char('g').and_then(|g| satisfy(move |&c| c == 'h' || c == g)).parse(&mut src), Ok('h'));
-        assert_eq!("()".parse(), Ok(Object::Nil));
+        use Object::*;
+        let src = "(hello world)";
+        assert_eq!(src.parse::<Object>(), Ok(List(vec![Var("hello".into()), Var("world".into())])));
+    }
+
+    #[test]
+    fn test_psc() {
+        let mut src = ParseState::new("a b (d g) () (add x (v) d) ())");
+        let _id_or_blank = identifier() >> move |s| blank() >> move |_| pure(Object::Var(s.clone()));
+
+        let parser = fix(|f| Box::new (
+            char('(') >> move |_|
+            many((identifier() >> move |s| blank() >> move |_| pure(Object::Var(s.clone()))) | f.clone()) >> move |xs|
+            char(')').and(blank()) >> move |_|
+            pure(Object::List(xs.clone()))
+        ));
+        assert_eq!(parser.parse(&mut src).ok(), None);
     }
 }

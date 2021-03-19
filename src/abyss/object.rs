@@ -74,7 +74,7 @@ impl cmp::PartialEq for Object {
             (Integer(x), Integer(y)) => x == y,
             (Real(x),    Real(y))    => x == y,
             (Str(x),     Str(y))     => x == y,
-            (List(xs),   List(ys))   => false,
+            (List(xs),   List(ys))   => xs == ys,
             (Custom(x),  Custom(y))  => false,
             _ => false
         }

@@ -1,6 +1,6 @@
 use super::core::*;
 //use super::ops::*;
-use crate::do_parse;
+//use crate::do_parse;
 
 
 pub fn char(ch: char) -> Char {
@@ -53,16 +53,17 @@ pub fn list_of_identifiers_sep_by_blank() -> Wrapper<impl Parser<Output=Vec<Stri
      pure(s.clone()))
         .info("Parsing list of identifiers")
 }
-
-pub fn list<P: Parser<Output=char> + Clone>(p: Wrapper<P>) -> Wrapper<impl Parser<Output=char> + Clone> {
+/*
+pub fn list<P: Parser<Output=Vec<String>> + Clone>(p: Wrapper<P>) -> Wrapper<impl Parser<Output=Vec<String>> + Clone> {
 
     wrap(
-        char('(') >> move |_|
-        p.clone() >> move |_|
-        char(')') >> move |c|
-        pure(c)
+        char('(') >> move |__|
+        many(identifier()) >> move |xs|
+        char(')') >> move |__|
+        pure(xs.clone())
     )
 }
+*/
 
 
 
@@ -81,7 +82,7 @@ mod tests {
             .and_then(|_| char('b'));
         assert_eq!(ans.parse(&mut src), Ok('b'));
     }
-
+    /*
     #[test]
     fn test_parser_monad_do_notation() {
         let mut src = ParseState::new("a0bcdefghijklmn");
@@ -93,7 +94,7 @@ mod tests {
             =o satisfy(move |&c| c == a || c == b || c == 'c')
         };
         assert_eq!(parser.parse(&mut src), Ok('c'));
-    }
+    }*/
 
     #[test]
     fn test_parser_many() {
@@ -147,5 +148,16 @@ mod tests {
         let mut src = ParseState::new("(   )");
         let parser = char('(').and(blank());
         assert_eq!(parser.parse(&mut src).ok(), Some("   ".into()));
+    }
+
+    #[test]
+    fn test_parser_fix() {
+        let mut src = ParseState::new("....@");
+        let parser = fix(|f| Box::new(
+            char('.') >> move |_|
+            f.clone().or(char('@')) >> move |xs|
+            pure(xs.clone())
+        ));
+        assert_eq!(parser.parse(&mut src).ok(), Some('@'));
     }
 }
