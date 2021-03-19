@@ -2,7 +2,7 @@ mod abyss;
 #[macro_use] mod parser;
 
 use std::io::prelude::*;
-use std::io::{self, Read, BufRead};
+use std::io::{self, BufRead};
 
 
 fn main() -> io::Result<()> {

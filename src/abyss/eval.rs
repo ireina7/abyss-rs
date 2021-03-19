@@ -4,22 +4,28 @@ use super::object::EvalError;
 use std::fmt;
 
 
-pub trait SExpr: fmt::Display + fmt::Debug + Clone {
+pub trait Eval: fmt::Display + fmt::Debug + Clone {
     fn eval(&self, env: &mut Env) -> Result<Self, EvalError>;
 }
 
-impl SExpr for Object {
+impl Eval for Object {
     fn eval(&self, env: &mut Env) -> Result<Self, EvalError> {
-        use Object::*;
-        match self {
-            Nil => Ok(self.clone()),
-            Var(s) => Ok(env.get(s).unwrap().clone()),
-            Symbol(_) => Ok(self.clone()),
-            Integer(_) => Ok(self.clone()),
-            Real(_) => Ok(self.clone()),
-            Str(_) => Ok(self.clone()),
-            List(__) => Ok(Nil),
-            _ => Ok(self.clone())
-        }
+        evaluate(self, env)
+    }
+}
+
+
+fn evaluate(expr: &Object, env: &mut Env) -> Result<Object, EvalError> {
+    use Object::*;
+
+    match expr {
+        Nil => Ok(Nil),
+        Var(s) => env.get(s).map(|x| x.clone()).ok_or(EvalError { msg: format!("No such variable: {}", s) }),
+        Symbol(_) => Ok(expr.clone()),
+        Integer(_) => Ok(expr.clone()),
+        Real(_) => Ok(expr.clone()),
+        Str(_) => Ok(expr.clone()),
+        List(_) => Ok(Nil),
+        _ => Ok(expr.clone())
     }
 }

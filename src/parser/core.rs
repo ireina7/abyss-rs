@@ -60,22 +60,18 @@ pub trait Parser {
     /* Utilities */
     fn and<P: Parser>(self, other: P) -> And<Self, P> where
         Self: Sized {
-
         And { a: self, b: other }
     }
     fn or<P>(self, other: P) -> Or<Self, P> where
         Self: Sized, P: Parser<Output=Self::Output> {
-
         Or { a: self, b: other }
     }
     fn map<B, F>(self, f: F) -> Map<Self, F> where
         Self: Sized, F: Fn(Self::Output) -> B {
-
         Map { parser: self, f: f }
     }
     fn and_then<B, F>(self, f: F) -> AndThen<Self, F> where
         Self: Sized, F: Fn(Self::Output) -> B {
-
         AndThen { parser: self, f: f }
     }
     fn info(self, msg: &str) -> Wrapper<Logger<Self>> where
@@ -153,11 +149,13 @@ impl<F> Parser for Satisfy<F> where
     }
 }
 
+#[allow(dead_code)]
 pub fn satisfy_of<F>(msg: &str, f: F) -> Satisfy<F> where
     F: Fn(&char) -> bool {
 
     Satisfy { satisfy: f, msg: msg.into() }
 }
+#[allow(dead_code)]
 pub fn satisfy<F>(f: F) -> Satisfy<F> where
     F: Fn(&char) -> bool {
 
@@ -358,11 +356,12 @@ impl<P: Parser> Parser for Many1<P> {
     }
 }
 
-
+#[allow(dead_code)]
 pub fn at_least_1<P: Parser>(p: P) -> Many1<P> {
     Many1 { parser: p }
 }
 
+#[allow(dead_code)]
 pub fn many1<P: Parser>(p: P) -> Many1<P> {
     at_least_1(p)
 }
@@ -384,6 +383,7 @@ impl Parser for ParseString {
 }
 
 //Should not use currently
+#[allow(dead_code)]
 fn string(s: &str) -> ParseString {
     ParseString { s: s.into() }
 }

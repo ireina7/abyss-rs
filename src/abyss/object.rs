@@ -5,6 +5,7 @@ use super::config::*;
 
 pub type Env = HashMap<String, Object>;
 
+#[derive(Clone, Debug)]
 pub struct EvalError {
     pub msg: String
 }

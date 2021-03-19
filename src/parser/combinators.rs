@@ -3,31 +3,39 @@ use super::core::*;
 //use crate::do_parse;
 
 
+#[allow(dead_code)]
 pub fn char(ch: char) -> Char {
     Char { ch }
 }
 
+#[allow(dead_code)]
 pub fn digit() -> Wrapper<impl Parser<Output=char> + Clone> {
 
     satisfy(|&c| c.is_digit(10)).info("Parsing single digit")
 }
+
+#[allow(dead_code)]
 pub fn digits() -> Wrapper<impl Parser<Output=Vec<char>> + Clone> {
 
     many(digit()).info("Parsing many digits")
 }
 
+#[allow(dead_code)]
 pub fn letter() -> Wrapper<impl Parser<Output=char> + Clone> {
     satisfy(|&c| c.is_alphabetic()).info("Parsing single letter")
 }
 
+#[allow(dead_code)]
 pub fn letters() -> Wrapper<impl Parser<Output=Vec<char>> + Clone> {
     many(letter()).info("Parsing many letters")
 }
 
+#[allow(dead_code)]
 pub fn blank() -> Wrapper<impl Parser<Output=String> + Clone> {
     many(char(' ') | char('\t') | char('\n')).map(|xs| xs.into_iter().collect()).wrap()
 }
 
+#[allow(dead_code)]
 pub fn identifier() -> Wrapper<impl Parser<Output=String> + Clone> {
 
     (letter()                                 >> move |x_|
@@ -36,6 +44,7 @@ pub fn identifier() -> Wrapper<impl Parser<Output=String> + Clone> {
         .info("Parsing identifier")
 }
 
+#[allow(dead_code)]
 pub fn identifiers_sep_by_blank() -> Wrapper<impl Parser<Output=Vec<String>> + Clone> {
 
     many(
@@ -45,6 +54,7 @@ pub fn identifiers_sep_by_blank() -> Wrapper<impl Parser<Output=Vec<String>> + C
         .info("Parsing identifiers")
 }
 
+#[allow(dead_code)]
 pub fn list_of_identifiers_sep_by_blank() -> Wrapper<impl Parser<Output=Vec<String>> + Clone> {
 
     (char('(')                  >> move |_|
