@@ -82,6 +82,10 @@ pub trait Parser {
         Self: Sized {
         Wrapper::new(self)
     }
+    fn map_err<F>(self, f: F) -> MapErr<Self, F> where
+        Self: Sized, F: Fn(ParseError) -> ParseError {
+        MapErr::new(self, f)
+    }
 }
 
 
@@ -247,6 +251,35 @@ impl<A, B, F> Parser for Map<A, F> where
         Ok((self.f)(x))
     }
 }
+
+
+pub struct MapErr<P, F> {
+    parser: P,
+    f: F
+}
+
+impl<P, F> MapErr<P, F> {
+    #[allow(dead_code)]
+    pub fn new(p: P, f: F) -> Self {
+        MapErr { parser: p, f: f }
+    }
+}
+
+impl<P, F> Parser for MapErr<P, F> where
+    P: Parser,
+    F: Fn(ParseError) -> ParseError {
+
+    type Output = P::Output;
+    fn parse<'a>(&self, state: &mut ParseState<'a>) -> Result<Self::Output, ParseError> {
+        let res = self.parser.parse(state);
+        match res {
+            Ok(_) => res,
+            Err(err) => Err((self.f)(err))
+        }
+    }
+}
+
+
 
 
 // (Fix f).parse() = (f (Fix f)).parse()

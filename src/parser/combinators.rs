@@ -90,6 +90,25 @@ pub fn identifier() -> Wrapper<impl Parser<Output=String> + Clone> {
 }
 
 #[allow(dead_code)]
+pub fn any() -> Wrapper<impl Parser<Output=char> + Clone> {
+    satisfy(|_| true).info("Parsing any char")
+}
+
+#[allow(dead_code)]
+pub fn one_of(cs: &str) -> Wrapper<impl Parser<Output=char> + Clone> {
+    let ss = cs.to_string();
+    satisfy(move |&c| ss.chars().any(|x| x == c))
+        .info(&format!("Parsing char of one of {}", cs))
+}
+
+#[allow(dead_code)]
+pub fn except(cs: &str) -> Wrapper<impl Parser<Output=char> + Clone> {
+    let ss = cs.to_string();
+    satisfy(move |&c| !ss.chars().any(|x| x == c))
+        .info(&format!("Parsing char except one of {}", cs))
+}
+
+#[allow(dead_code)]
 pub fn identifiers_sep_by_blank() -> Wrapper<impl Parser<Output=Vec<String>> + Clone> {
 
     many(
