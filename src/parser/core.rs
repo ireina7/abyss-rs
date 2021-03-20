@@ -76,11 +76,11 @@ pub trait Parser {
     }
     fn info(self, msg: &str) -> Wrapper<Logger<Self>> where
         Self: Sized {
-        wrap(Logger { parser: self, msg: msg.into() })
+        Logger::new(self, msg).wrap()
     }
     fn wrap(self) -> Wrapper<Self> where
         Self: Sized {
-        wrap(self)
+        Wrapper::new(self)
     }
 }
 
@@ -92,6 +92,12 @@ pub trait Parser {
 pub struct Logger<P> {
     parser: P,
     msg: String
+}
+
+impl<P> Logger<P> {
+    pub fn new(p: P, msg: &str) -> Self {
+        Logger{  parser: p, msg: msg.into() }
+    }
 }
 
 impl<P: Parser> Parser for Logger<P> {
@@ -123,16 +129,18 @@ impl<P: Parser> Parser for Wrapper<P> {
     }
 }
 
-pub fn wrap<P: Parser>(p: P) -> Wrapper<P> {
-    Wrapper::new(p)
-}
 
 
 
 #[derive(Clone, Debug)]
 pub struct Satisfy<F> {
     satisfy: F,
-    msg: String
+}
+
+impl<F> Satisfy<F> {
+    pub fn new(f: F) -> Self {
+        Satisfy { satisfy: f }
+    }
 }
 
 impl<F> Parser for Satisfy<F> where
@@ -143,24 +151,12 @@ impl<F> Parser for Satisfy<F> where
         state.next()
             .filter(&self.satisfy)
             .ok_or(ParseError {
-                msg: self.msg.clone(),
+                msg: "Not satisfiled".into(),
                 pos: state.pos
             })
     }
 }
 
-#[allow(dead_code)]
-pub fn satisfy_of<F>(msg: &str, f: F) -> Satisfy<F> where
-    F: Fn(&char) -> bool {
-
-    Satisfy { satisfy: f, msg: msg.into() }
-}
-#[allow(dead_code)]
-pub fn satisfy<F>(f: F) -> Satisfy<F> where
-    F: Fn(&char) -> bool {
-
-    Satisfy { satisfy: f, msg: "unknown".into() }
-}
 
 #[derive(Clone, Debug)]
 pub struct And<A, B> {
@@ -197,14 +193,22 @@ impl<A, B> Parser for Or<A, B> where
     type Output = A::Output;
     fn parse<'a>(&self, state: &mut ParseState<'a>) -> Result<Self::Output, ParseError> {
         let tmp = state.clone();
-        let a = self.a.parse(state);
-        if let Ok(_) = a {
-            return a;
+        match self.a.parse(state) {
+            ok @ Ok(_) => ok,
+            Err(ParseError { msg: msg0, pos: _ }) => {
+                *state = tmp;
+                match self.b.parse(state) {
+                    ok @ Ok(_) => ok,
+                    Err(ParseError { msg: msg1, pos: pos1 }) => {
+                        Err(ParseError { msg: format!("{} | {}", msg0, msg1), pos: pos1 })
+                    }
+                }
+            }
         }
-        *state = tmp;
-        self.b.parse(state)
     }
 }
+
+
 #[derive(Clone, Debug)]
 pub struct AndThen<P, F> {
     parser: P,
@@ -250,6 +254,14 @@ pub struct Fix<'a, A> {
     fix: Rc<dyn for<'f> Fn(&'f Self) -> Box<dyn Parser<Output=A> + 'f> + 'a>
 }
 
+impl<'a, A> Fix<'a, A> {
+    pub fn new<F>(fix: F) -> Self where
+        F: for<'f> Fn(&'f Self) -> Box<dyn Parser<Output=A> + 'f> + 'a {
+
+        Fix { fix: Rc::new(fix) }
+    }
+}
+
 impl<A> Parser for Fix<'_, A> {
 
     type Output = A;
@@ -264,11 +276,6 @@ impl<A> Clone for Fix<'_, A> {
     }
 }
 
-pub fn fix<'a, A, F>(fix: F) -> Fix<'a, A> where
-    F: for<'f> Fn(&'f Fix<'a, A>) -> Box<dyn Parser<Output=A> + 'f> + 'a {
-
-    Fix { fix: Rc::new(fix) }
-}
 
 
 
@@ -297,6 +304,12 @@ pub struct Pure<A: Clone> {
     x: A
 }
 
+impl<A: Clone> Pure<A> {
+    pub fn new(a: A) -> Self {
+        Pure { x: a }
+    }
+}
+
 impl<A: Clone> Parser for Pure<A> {
     type Output = A;
     fn parse<'a>(&self, _state: &mut ParseState<'a>) -> Result<Self::Output, ParseError> {
@@ -304,14 +317,17 @@ impl<A: Clone> Parser for Pure<A> {
     }
 }
 
-pub fn pure<A: Clone>(x: A) -> Pure<A> {
-    Pure { x: x }
-}
 
 
 #[derive(Clone, Debug)]
 pub struct Many<P> {
     parser: P,
+}
+
+impl<P> Many<P> {
+    pub fn new(p: P) -> Self {
+        Many { parser: p }
+    }
 }
 
 impl<P> Parser for Many<P> where
@@ -330,13 +346,16 @@ impl<P> Parser for Many<P> where
     }
 }
 
-pub fn many<P: Parser>(p: P) -> Many<P> {
-    Many { parser: p }
-}
 
 #[derive(Clone, Debug)]
 pub struct Many1<P> {
     parser: P
+}
+
+impl<P> Many1<P> {
+    pub fn new(p: P) -> Self {
+        Many1 { parser: p }
+    }
 }
 
 impl<P: Parser> Parser for Many1<P> {
@@ -356,15 +375,6 @@ impl<P: Parser> Parser for Many1<P> {
     }
 }
 
-#[allow(dead_code)]
-pub fn at_least_1<P: Parser>(p: P) -> Many1<P> {
-    Many1 { parser: p }
-}
-
-#[allow(dead_code)]
-pub fn many1<P: Parser>(p: P) -> Many1<P> {
-    at_least_1(p)
-}
 
 #[derive(Clone, Debug)]
 pub struct ParseString {

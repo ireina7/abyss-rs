@@ -4,6 +4,50 @@ use super::core::*;
 
 
 #[allow(dead_code)]
+pub fn wrap<P: Parser>(p: P) -> Wrapper<P> {
+    Wrapper::new(p)
+}
+
+#[allow(dead_code)]
+pub fn pure<A: Clone>(x: A) -> Pure<A> {
+    Pure::new(x)
+}
+
+
+#[allow(dead_code)]
+pub fn satisfy<F>(f: F) -> Satisfy<F> where
+    F: Fn(&char) -> bool {
+
+    Satisfy::new(f)
+}
+
+#[allow(dead_code)]
+pub fn fix<'a, A, F>(fix: F) -> Fix<'a, A> where
+    F: for<'f> Fn(&'f Fix<'a, A>) -> Box<dyn Parser<Output=A> + 'f> + 'a {
+
+    Fix::new(fix)
+}
+
+#[allow(dead_code)]
+pub fn many<P: Parser>(p: P) -> Many<P> {
+    Many::new(p)
+}
+
+#[allow(dead_code)]
+pub fn at_least_1<P: Parser>(p: P) -> Many1<P> {
+    Many1::new(p)
+}
+
+#[allow(dead_code)]
+pub fn many1<P: Parser>(p: P) -> Many1<P> {
+    at_least_1(p)
+}
+
+
+
+
+
+#[allow(dead_code)]
 pub fn char(ch: char) -> Char {
     Char { ch }
 }
@@ -32,7 +76,8 @@ pub fn letters() -> Wrapper<impl Parser<Output=Vec<char>> + Clone> {
 
 #[allow(dead_code)]
 pub fn blank() -> Wrapper<impl Parser<Output=String> + Clone> {
-    many(char(' ') | char('\t') | char('\n')).map(|xs| xs.into_iter().collect()).wrap()
+    many(char(' ') | char('\t') | char('\n')).map(|xs| xs.into_iter().collect())
+        .info("Parsing blanks")
 }
 
 #[allow(dead_code)]

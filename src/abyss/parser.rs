@@ -49,7 +49,7 @@ fn string() -> Wrapper<impl Parser<Output=Object> + Clone> {
         char('"').and(many(satisfy(|&c| c != '"'))) >> move |s| {
         char('"') >> move |_|
         pure(Object::Str(s.clone().into_iter().collect()))
-    }).info("")
+    }).info("Parsing string")
 }
 
 fn atom() -> Wrapper<impl Parser<Output=Object> + Clone> {
