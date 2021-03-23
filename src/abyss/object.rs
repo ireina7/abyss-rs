@@ -43,7 +43,7 @@ pub enum Object {
     Real(f64),
     Str(String),
     List(Vec<Object>),
-    Closure(Vec<Object>, Env),
+    Closure(Box<Object>, Box<Object>, Env),
     Custom(Box<dyn CustomObj>)
 }
 
@@ -59,7 +59,7 @@ impl Clone for Object {
             Real(n) => Real(*n),
             Str(s) => Str(s.clone()),
             List(os) => List(os.clone()),
-            Closure(params, env) => Closure(params.clone(), env.clone()),
+            Closure(params, expr, env) => Closure(params.clone(), expr.clone(), env.clone()),
             Custom(obj) => Custom(obj.clone())
         }
     }
@@ -99,7 +99,7 @@ impl fmt::Debug for Object {
             Real(n)    => write!(f, "Real({})", n),
             Str(s)     => write!(f, "Str({})", s),
             List(xs)   => write!(f, "{}", format!("{}{}{}", "(", &xs.iter().map(|o| format!("{:?}", o)).collect::<Vec<_>>().join(" "), ")")),
-            Closure(_, _) => write!(f, "[closure]"),
+            Closure(_, _, _) => write!(f, "[closure]"),
             Custom(o)  => write!(f, "{}", o)
         }
     }
@@ -116,7 +116,7 @@ impl fmt::Display for Object {
             Real(n)    => write!(f, "{}", n),
             Str(s)     => write!(f, "\"{}\"", s),
             List(xs)   => write!(f, "{}", format!("{}{}{}", "(", &xs.iter().map(|o| format!("{}", o)).collect::<Vec<_>>().join(" "), ")")),
-            Closure(_, _) => write!(f, "[closure]"),
+            Closure(_, _, _) => write!(f, "[closure]"),
             Custom(o)  => write!(f, "{}", o),
         }
     }

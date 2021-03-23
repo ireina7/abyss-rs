@@ -1,0 +1,3 @@
+struct LogicError {
+    msg: String
+}

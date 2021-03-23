@@ -25,7 +25,11 @@ fn evaluate(expr: &Object, env: &mut Env) -> Result<Object, EvalError> {
         Integer(_) => Ok(expr.clone()),
         Real(_) => Ok(expr.clone()),
         Str(_) => Ok(expr.clone()),
-        List(_) => Ok(Nil),
+        List(xs) => match &xs[..] {
+            [] => Ok(Nil),
+            [Var(op), ps, expr] if &op[..] == "lambda" => Ok(Closure(Box::new(ps.clone()), Box::new(expr.clone()), env.clone())),
+            _ => Ok(Nil)
+        },
         _ => Ok(expr.clone())
     }
 }

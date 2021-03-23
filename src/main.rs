@@ -1,5 +1,6 @@
 mod abyss;
 #[macro_use] mod parser;
+mod logic;
 
 use std::io::prelude::*;
 use std::io::{self, BufRead};
