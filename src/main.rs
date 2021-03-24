@@ -28,7 +28,7 @@ fn main() -> io::Result<()> {
         let mut env = std::collections::HashMap::new();
         let res = match ast {
             Ok(src) => src.eval(&mut env),
-            Err(_) => Err(abyss::object::EvalError { msg: "".into() })
+            Err(err) => Err(abyss::object::EvalError { msg: err.msg })
         };
         println!("{:?}\n", res);
         prompt("abyss");
