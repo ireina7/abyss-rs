@@ -1,10 +1,8 @@
-#[allow(dead_code)]
-struct LogicError {
-    msg: String
-}
+use std::collections::HashMap;
 
-#[allow(dead_code)]
-enum LogicObject<T: PartialEq> {
-    Var(String),
-    Lit(T)
+
+pub trait Unifiable {
+    type Key;
+    fn unify(&self, other: &Self) -> HashMap<Self::Key, Self>
+        where Self: Sized;
 }

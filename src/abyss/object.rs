@@ -84,7 +84,7 @@ impl cmp::PartialEq for Object {
     }
 }
 
-
+impl cmp::Eq for Object {}
 
 
 
