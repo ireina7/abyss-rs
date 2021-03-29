@@ -1,5 +1,6 @@
 use std::fmt;
 use std::cmp;
+use std::hash::{ Hash, Hasher };
 use super::config::*;
 
 
@@ -11,6 +12,7 @@ pub struct EvalError {
 }
 pub trait CustomObj: fmt::Display + fmt::Debug + CustomObjClone {
     fn eval(&self, env: &mut Env) -> Result<Object, EvalError>;
+    fn hash_dyn(&self) -> i64;
 }
 
 
@@ -29,6 +31,12 @@ impl<T> CustomObjClone for T
 impl Clone for Box<dyn CustomObj> {
     fn clone(&self) -> Box<dyn CustomObj> {
         self.clone_boxed_obj()
+    }
+}
+
+impl Hash for Box<dyn CustomObj> {
+    fn hash<H>(&self, state: &mut H) where H: Hasher {
+        self.hash_dyn().hash(state)
     }
 }
 
@@ -122,6 +130,16 @@ impl fmt::Display for Object {
     }
 }
 
+/// This `std::hash::Hash` implementation for `Object` is not safe.
+/// Some specification on custom variant should be done.
+impl Hash for Object {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write(format!("{:?}", self).as_bytes());
+    }
+}
+
+
+
 
 
 
@@ -145,6 +163,9 @@ mod tests {
     impl CustomObj for DummyCustomObj {
         fn eval(&self, _env: &mut Env) -> Result<Object, EvalError> {
             Ok(Object::Nil)
+        }
+        fn hash_dyn(&self) -> i64 {
+            0_i64
         }
     }
     #[test]
