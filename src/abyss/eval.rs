@@ -3,6 +3,8 @@
 use super::object::Object;
 use super::object::Env;
 use std::fmt;
+//use super::parser;
+//use std::rc::Rc;
 use super::config::HashMap;
 pub use super::object::EvalError;
 
@@ -12,14 +14,17 @@ pub use super::object::EvalError;
 /// The generic type `Output` is exposed in order to evaluate abyss expression to various
 /// target output in the future.
 pub trait Eval<Output>: fmt::Display + fmt::Debug + Clone {
-    fn eval(&self, env: &mut Env) -> Result<Output, EvalError>;
+    fn eval(&self, env: &Env) -> Result<Output, EvalError>;
 }
 
 impl Eval<Object> for Object {
-    fn eval(&self, env: &mut Env) -> Result<Object, EvalError> {
+    fn eval(&self, env: &Env) -> Result<Object, EvalError> {
         evaluate(self, env)
     }
 }
+
+
+
 
 /// Test if the arithmetic operator is valid
 fn is_arith(op: &str) -> bool {
@@ -28,8 +33,7 @@ fn is_arith(op: &str) -> bool {
 
 
 /// Evaluate arithmetic expressions.
-/// Real numbers has not been supported yet!
-fn eval_arith(expr: &Object, env: &mut Env) -> Result<Object, EvalError> {
+fn eval_arith(expr: &Object, env: &Env) -> Result<Object, EvalError> {
     use Object::*;
     
     let binary_integer: Vec<(&str, Box<dyn Fn(i32, i32) -> i32>)> = vec![
@@ -39,6 +43,14 @@ fn eval_arith(expr: &Object, env: &mut Env) -> Result<Object, EvalError> {
         ("/", Box::new(move |a, b| a / b)),
     ];
     let binary_integer: HashMap<&str, Box<dyn Fn(i32, i32) -> i32>> = binary_integer.into_iter().collect();
+
+    let binary_real: Vec<(&str, Box<dyn Fn(f64, f64) -> f64>)> = vec![
+        ("+", Box::new(move |a, b| a + b)),
+        ("-", Box::new(move |a, b| a - b)),
+        ("*", Box::new(move |a, b| a * b)),
+        ("/", Box::new(move |a, b| a / b)),
+    ];
+    let binary_real: HashMap<&str, Box<dyn Fn(f64, f64) -> f64>> = binary_real.into_iter().collect();
     match expr {
         List(xs) => match &xs[..] {
             [Var(op), x, y] if is_arith(&op) => {
@@ -46,7 +58,7 @@ fn eval_arith(expr: &Object, env: &mut Env) -> Result<Object, EvalError> {
                 let y = evaluate(y, env)?;
                 match (x, y) {
                     (Integer(x), Integer(y)) => Ok(Integer((binary_integer[&op[..]])(x, y))),
-                    (Real(_x), Real(_y)) => todo!(),
+                    (Real(x), Real(y)) => Ok(Real((binary_real[&op[..]])(x, y))),
                     _ => Err(EvalError { msg: format!("Arith error") })
                 }
             },
@@ -57,16 +69,22 @@ fn eval_arith(expr: &Object, env: &mut Env) -> Result<Object, EvalError> {
 }
 
 /// Handle bindings
-fn bindings(bindings: &[Object], env: &mut Env) -> Result<(), EvalError> {
+fn bindings(bindings: &[Object], env: &Env) -> Result<Env, EvalError> {
+    use Object::*;
+    let mut env = env.clone();
     for binding in bindings {
         match binding {
-            Object::List(xs) => match &xs[..] {
-                _ => todo!()
+            List(xs) => match &xs[..] {
+                [Var(s), expr] => {
+                    let v = evaluate(expr, &env)?;
+                    env.insert(s.clone(), v);
+                }
+                _ => todo!() //unsupported yet!
             },
             _ => return Err(EvalError { msg: format!("Binding error: {:?}", binding) })
         }
     }
-    Ok(())
+    Ok(env)
 }
 
 /// Handle basic function application `(f x)`
@@ -77,13 +95,13 @@ fn apply(f: Object, x: Object) -> Result<Object, EvalError> {
     match f {
         Closure(params, expr, env) => {
             // Unification should be invoked here, but we only allow single variable here to debug...
-            let mut env = env.clone();
+            let mut env = env;
             match *params {
                 List(ps) => match &ps[..] {
-                    [ ] => evaluate(&*expr, &mut env),
+                    [ ] => evaluate(&*expr, &env),
                     [Var(s)] => {
                         env.insert(s.clone(), x);
-                        evaluate(&*expr, &mut env)
+                        evaluate(&*expr, &env)
                     },
                     [Var(s), ss @ ..] => {
                         env.insert(s.clone(), x);
@@ -101,7 +119,7 @@ fn apply(f: Object, x: Object) -> Result<Object, EvalError> {
 
 
 /// The main evaluate function to calculate all abyss expressions
-fn evaluate(expr: &Object, env: &mut Env) -> Result<Object, EvalError> {
+fn evaluate(expr: &Object, env: &Env) -> Result<Object, EvalError> {
     use Object::*;
 
     match expr {
@@ -116,16 +134,17 @@ fn evaluate(expr: &Object, env: &mut Env) -> Result<Object, EvalError> {
             [] => Ok(Nil),
 
             // Lambda abstraction
-            [Var(op), ps, expr] if &op[..] == "lambda" => 
-                Ok(Closure(Box::new(ps.clone()), Box::new(expr.clone()), env.clone())),
+            [Var(op), ps, expr] if &op[..] == "lambda" => {
+                Ok(Object::closure(ps.clone(), expr.clone(), env.clone()))
+            },
             
             // Basic arithmetic
             [Var(op), _, _] if is_arith(&op) => eval_arith(expr, env),
 
             // Let bindings
             [Var(op), List(bs), expr] if &op[..] == "let" => {
-                bindings(bs, env)?;
-                evaluate(expr, env)
+                let env = bindings(bs, env)?;
+                evaluate(expr, &env)
             },
 
             // Normal function application

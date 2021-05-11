@@ -2,6 +2,8 @@ use std::fmt;
 use std::cmp;
 use std::hash::{ Hash, Hasher };
 use super::config::*;
+//use std::rc::Rc;
+//use std::cell::RefCell;
 
 
 pub type Env = HashMap<String, Object>;
@@ -52,7 +54,14 @@ pub enum Object {
     Str(String),
     List(Vec<Object>),
     Closure(Box<Object>, Box<Object>, Env),
+    //Fix() need fixpoint here
     Custom(Box<dyn CustomObj>)
+}
+
+impl Object {
+    pub fn closure(ps: Object, expr: Object, env: Env) -> Self {
+        Self::Closure(Box::new(ps), Box::new(expr), env.clone())
+    }
 }
 
 

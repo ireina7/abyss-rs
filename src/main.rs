@@ -41,18 +41,21 @@ fn main() -> io::Result<()> {
         if line == "quit" {
             break;
         }
+        if line == "" {
+            prompt("abyss");
+            continue;
+        }
         let ast = line.parse::<abyss::Object>();
         //println!("{:?} =>", ast);
         let mut env = std::collections::HashMap::new();
+        let y = "(lambda (f) ((lambda (x) (f (lambda (v) (x x v)))) (lambda (x) (f (lambda (v) (x x v))))))"
+            .parse::<abyss::Object>().unwrap();
+        let y = y.eval(&env).unwrap();
+        env.insert(String::from("fix"), y);
         let res = ast
             .map_err(|parser::ParseError {msg, ..}| abyss::eval::EvalError { msg })
-            .and_then(|src| src.eval(&mut env));
-        /*
-        let res = match ast {
-            Ok(src) => src.eval(&mut env),
-            Err(err) => Err(abyss::object::EvalError { msg: err.msg })
-        };
-        */
+            .and_then(|src| src.eval(&env));
+        
         println!("{}\n", result(res));
         prompt("abyss");
     }
