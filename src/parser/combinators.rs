@@ -89,6 +89,8 @@ pub fn identifier() -> Wrapper<impl Parser<Output=String> + Clone> {
         .info("Parsing identifier")
 }
 
+
+
 #[allow(dead_code)]
 pub fn any() -> Wrapper<impl Parser<Output=char> + Clone> {
     satisfy(|_| true).info("Parsing any char")

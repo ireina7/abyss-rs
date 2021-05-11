@@ -2,7 +2,7 @@ use super::object::Object;
 use super::object::Env;
 use super::object::EvalError;
 use std::fmt;
-//use super::config::HashMap;
+use super::config::HashMap;
 
 
 pub trait Eval: fmt::Display + fmt::Debug + Clone {
@@ -19,23 +19,46 @@ fn is_arith(op: &str) -> bool {
     ["+", "-", "*", "/"].iter().any(|&x| x == op)
 }
 
+
+
 fn eval_arith(expr: &Object, env: &mut Env) -> Result<Object, EvalError> {
     use Object::*;
+    
+    let binary_integer: Vec<(&str, Box<dyn Fn(i32, i32) -> i32>)> = vec![
+        ("+", Box::new(move |a, b| a + b)),
+        ("-", Box::new(move |a, b| a - b)),
+        ("*", Box::new(move |a, b| a * b)),
+        ("/", Box::new(move |a, b| a / b)),
+    ];
+    let binary_integer: HashMap<&str, Box<dyn Fn(i32, i32) -> i32>> = binary_integer.into_iter().collect();
     match expr {
         List(xs) => match &xs[..] {
-            [Var(op), x, y] if &op[..] == "+" => {
+            [Var(op), x, y] if is_arith(&op) => {
                 let x = evaluate(x, env)?;
                 let y = evaluate(y, env)?;
                 if let (Integer(x), Integer(y)) = (x, y) {
-                    Ok(Integer(x + y))
+                    Ok(Integer((binary_integer[&op[..]])(x, y)))
                 } else {
-                    Err(EvalError { msg: format!("") })
+                    Err(EvalError { msg: format!("Arith error") })
                 }
             },
             _ => Err(EvalError { msg: format!("eval arithmetic error!") })
         },
         _ => Err(EvalError { msg: format!("eval arithmetic error!") })
     }
+}
+
+
+fn bindings(bs: &[Object], env: &mut Env) -> Result<(), EvalError> {
+    for binding in bs {
+        match binding {
+            Object::List(xs) => match &xs[..] {
+                _ => todo!()
+            },
+            _ => return Err(EvalError { msg: format!("Binding error: {:?}", binding) })
+        }
+    }
+    Ok(())
 }
 
 
@@ -53,10 +76,13 @@ fn evaluate(expr: &Object, env: &mut Env) -> Result<Object, EvalError> {
             [] => Ok(Nil),
             [Var(op), ps, expr] if &op[..] == "lambda" => Ok(Closure(Box::new(ps.clone()), Box::new(expr.clone()), env.clone())),
             [Var(op), _, _] if is_arith(&op) => eval_arith(expr, env),
-            [Var(op), _bs, expr] if &op[..] == "let" => {
+            [Var(op), List(bs), expr] if &op[..] == "let" => {
+                bindings(bs, env)?;
                 evaluate(expr, env)
             },
-            _ => Ok(Nil)
+            _ => {
+                Ok(Nil)
+            }
         },
         _ => Err(EvalError { msg: format!("Unknow expression: {:?}", expr) })
     }

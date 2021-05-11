@@ -15,8 +15,19 @@ impl FromStr for Object {
 
 
 
+pub fn magma() -> Wrapper<impl Parser<Output=String> + Clone> {
+
+    (satisfy(|&c| 
+        !c.is_digit(10) && "'()".chars().all(|x| c != x))
+                           >> move |x_|
+     many(except("() "))   >> move |xs|
+     pure(vec![x_].into_iter().chain(xs.into_iter()).collect::<String>()))
+        .info("Parsing magma identifier")
+}
+
 fn variable() -> Wrapper<impl Parser<Output=Object> + Clone> {
-    identifier().map(|s| Object::Var(s))
+    magma()
+        .map(|s| Object::Var(s))
         .info("Parsing variable")
 }
 
