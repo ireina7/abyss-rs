@@ -2,10 +2,9 @@
 
 use super::object::Object;
 use super::object::Env;
-use super::object::EvalError;
 use std::fmt;
 use super::config::HashMap;
-
+pub use super::object::EvalError;
 
 
 /// The main Eval trait, should be able to display and debug (Clone to store in Env)
@@ -45,10 +44,10 @@ fn eval_arith(expr: &Object, env: &mut Env) -> Result<Object, EvalError> {
             [Var(op), x, y] if is_arith(&op) => {
                 let x = evaluate(x, env)?;
                 let y = evaluate(y, env)?;
-                if let (Integer(x), Integer(y)) = (x, y) {
-                    Ok(Integer((binary_integer[&op[..]])(x, y)))
-                } else {
-                    Err(EvalError { msg: format!("Arith error") })
+                match (x, y) {
+                    (Integer(x), Integer(y)) => Ok(Integer((binary_integer[&op[..]])(x, y))),
+                    (Real(_x), Real(_y)) => todo!(),
+                    _ => Err(EvalError { msg: format!("Arith error") })
                 }
             },
             _ => Err(EvalError { msg: format!("eval arithmetic error!") })
@@ -69,6 +68,36 @@ fn bindings(bindings: &[Object], env: &mut Env) -> Result<(), EvalError> {
     }
     Ok(())
 }
+
+/// Handle basic function application `(f x)`
+/// 
+/// `f` and `x` should have been evaluated!
+fn apply(f: Object, x: Object) -> Result<Object, EvalError> {
+    use Object::*;
+    match f {
+        Closure(params, expr, env) => {
+            // Unification should be invoked here, but we only allow single variable here to debug...
+            let mut env = env.clone();
+            match *params {
+                List(ps) => match &ps[..] {
+                    [ ] => evaluate(&*expr, &mut env),
+                    [Var(s)] => {
+                        env.insert(s.clone(), x);
+                        evaluate(&*expr, &mut env)
+                    },
+                    [Var(s), ss @ ..] => {
+                        env.insert(s.clone(), x);
+                        Ok(Closure(Box::new(List(ss.to_vec())), expr, env))
+                    }
+                    _ => todo!()
+                },
+                _ => todo!()
+            }
+        }
+        _ => Err(EvalError { msg: format!("Function application error: {:?}", f) })
+    }
+}
+
 
 
 /// The main evaluate function to calculate all abyss expressions
@@ -100,8 +129,13 @@ fn evaluate(expr: &Object, env: &mut Env) -> Result<Object, EvalError> {
             },
 
             // Normal function application
-            _ => {
-                Ok(Nil)
+            [f, xs @ .. ] => {
+                let mut fv = evaluate(f, env)?;
+                for x in xs {
+                    let xv = evaluate(x, env)?;
+                    fv = apply(fv, xv)?;
+                }
+                Ok(fv)
             }
         },
         _ => Err(EvalError { msg: format!("Unknow expression: {:?}", expr) })
