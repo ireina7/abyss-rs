@@ -62,7 +62,9 @@ fn unify_var(var: &Object, v: &Object, env: &mut Env) -> Result<(), UnifyError> 
         (Var(_), _) if env.contains_key(v) => {
             let next = env[v].clone();
             unify_objects(var, &next, env)
-        }
+        },
+        (Var(_), _) if check_occurs(var, v, env) => 
+            Err(UnifyError { msg: format!("Unification error: check occurence error!") }),
         (Var(_), _) => {
             env.insert(var.clone(), v.clone());
             Ok(())
@@ -70,6 +72,22 @@ fn unify_var(var: &Object, v: &Object, env: &mut Env) -> Result<(), UnifyError> 
         _ => Err(UnifyError { msg: format!("Unification error: Unifying varibles") })
     }
 }
+
+fn check_occurs(v: &Object, term: &Object, env: &Env) -> bool {
+    use Object::*;
+
+    if v == term {
+        return true;
+    }
+    match (v, term) {
+        (Var(_), Var(_)) if env.contains_key(term) => {
+            check_occurs(v, &env[term], env)
+        },
+        (Var(_), List(xs)) => xs.iter().any(|x| check_occurs(v, x, env)),
+        _ => false
+    }
+}
+
 
 
 
@@ -120,10 +138,10 @@ mod tests {
     #[test]
     fn test_simple_unification() {
         use Object::*;
-        let lhs = List(vec![Var("a".into()), Var("b".into()), Str("test_str".into())]);
-        let rhs = List(vec![Var("b".into()), Integer(7), Str("test_str".into())]);
+        let lhs = List(vec![Var("a".into()), Var("b".into()), Var("b".into()), Str("test_str".into())]);
+        let rhs = List(vec![Var("b".into()), Var("a".into()), Integer(7), Str("test_str".into())]);
         let res = lhs.unify(&rhs);
 
-        assert_eq!(res, Ok(HashMap::new()));
+        assert_eq!(res.ok(), None);
     }
 }
