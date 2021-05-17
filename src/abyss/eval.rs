@@ -68,6 +68,19 @@ fn eval_arith(expr: &Object, env: &Env) -> Result<Object, EvalError> {
     }
 }
 
+
+// Evaluate arithmetic expressions.
+fn eval_if(cond: &Object, x: &Object, y: &Object, env: &Env) -> Result<Object, EvalError> {
+    use Object::*;
+
+    let cond = evaluate(cond, env)?;
+    match cond {
+        Var(s) if &s[..] == "True"  => evaluate(x, env),
+        Var(s) if &s[..] == "False" => evaluate(y, env),
+        _ => Err(EvalError { msg: format!("If expression error: {:?}", cond) })
+    }
+}
+
 /// Handle bindings
 fn bindings(bindings: &[Object], env: &Env) -> Result<Env, EvalError> {
     use Object::*;
@@ -117,6 +130,14 @@ fn apply(f: Object, x: Object) -> Result<Object, EvalError> {
 }
 
 
+fn is_atom(s: &str) -> bool {
+    let atoms = ["True", "False"];
+    atoms.iter().any(|&x| x == s)
+}
+
+
+
+
 
 /// The main evaluate function to calculate all abyss expressions
 fn evaluate(expr: &Object, env: &Env) -> Result<Object, EvalError> {
@@ -124,6 +145,7 @@ fn evaluate(expr: &Object, env: &Env) -> Result<Object, EvalError> {
 
     match expr {
         Nil        => Ok(Nil),
+        Var(s) if is_atom(s) => Ok(expr.clone()),
         Var(s)     => env.get(s).map(|x| x.clone()).ok_or(EvalError { msg: format!("No such variable: {}", s) }),
         Symbol(_)  => Ok(expr.clone()),
         Integer(_) => Ok(expr.clone()),
@@ -140,6 +162,9 @@ fn evaluate(expr: &Object, env: &Env) -> Result<Object, EvalError> {
             
             // Basic arithmetic
             [Var(op), _, _] if is_arith(&op) => eval_arith(expr, env),
+
+            // If expressions
+            [Var(op), cond, x, y] if &op[..] == "if" => eval_if(cond, x, y, env),
 
             // Let bindings
             [Var(op), List(bs), expr] if &op[..] == "let" => {
