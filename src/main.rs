@@ -1,9 +1,9 @@
 mod abyss;
-#[macro_use] mod parser;
+mod parser;
 mod logic;
 
 
-use abyss::repl::repl;
+use abyss::repl;
 
 /// The main entry
 fn main() -> std::io::Result<()> {

@@ -42,6 +42,11 @@ pub fn repl() -> io::Result<()> {
             prompt("abyss");
             continue;
         }
+        if line == "help" {
+            println!("The Abyss programming language developed by Ireina.\n");
+            prompt("abyss");
+            continue;
+        }
         let ast = line.parse::<Object>();
         //println!("{:?} =>", ast);
         let mut env = std::collections::HashMap::new();

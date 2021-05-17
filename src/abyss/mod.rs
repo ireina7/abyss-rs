@@ -13,3 +13,4 @@ pub use self::config::*;
 pub use self::object::*;
 //pub use parser::*;
 pub use self::eval::*;
+pub use self::repl::*;

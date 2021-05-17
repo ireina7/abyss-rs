@@ -5,24 +5,27 @@ use std::collections::HashMap;
 
 impl Unifiable for Object {
 
-    type Key = Object;
+    type Key = String;
     fn unify(&self, other: &Self) -> Result<HashMap<Self::Key, Self>, UnifyError>
         where Self: Sized 
     {
+        use Object::*;
         let mut env = HashMap::new();
         let res = unify_objects(self, other, &mut env);
         if let Err(err) = res {
             return Err(err)
         }
-        let mut ans = env.clone();
+        let mut ans = HashMap::new();
         let keys: Vec<_> = env.keys().collect();
-        for var in keys {
-            let v = subst(&env, var);
-            match v {
-                Some(o) => {
-                    ans.insert(var.clone(), o);
-                },
-                None => return Err(UnifyError { msg: format!("Unification error: No value!") })
+        for key in keys {
+            if let Var(s) = key {
+                let v = subst(&env, &key);
+                match v {
+                    Some(o) => {
+                        ans.insert(s.clone(), o);
+                    },
+                    None => return Err(UnifyError { msg: format!("Unification error: No value!") })
+                }
             }
         }
         Ok(ans)
@@ -34,7 +37,7 @@ impl Unifiable for Object {
 
 type Env = HashMap<Object, Object>;
 
-#[allow(dead_code)]
+//#[allow(dead_code)]
 fn subst(map: &HashMap<Object, Object>, obj: &Object) -> Option<Object> {
     use Object::*;
     match obj {
@@ -138,8 +141,8 @@ mod tests {
     #[test]
     fn test_simple_unification() {
         use Object::*;
-        let lhs = List(vec![Var("a".into()), Var("b".into()), Var("b".into()), Str("test_str".into())]);
-        let rhs = List(vec![Var("b".into()), Var("a".into()), Integer(7), Str("test_str".into())]);
+        let lhs = List(vec![Var("a".into()), Var("b".into()), Str("test_str".into())]);
+        let rhs = List(vec![Var("b".into()), Integer(7), Str("test_str".into())]);
         let res = lhs.unify(&rhs);
 
         assert_eq!(res.ok(), None);
