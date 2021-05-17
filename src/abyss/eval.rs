@@ -69,7 +69,7 @@ fn eval_arith(expr: &Object, env: &Env) -> Result<Object, EvalError> {
 }
 
 
-// Evaluate arithmetic expressions.
+/// Evaluate arithmetic expressions.
 fn eval_if(cond: &Object, x: &Object, y: &Object, env: &Env) -> Result<Object, EvalError> {
     use Object::*;
 
@@ -80,6 +80,13 @@ fn eval_if(cond: &Object, x: &Object, y: &Object, env: &Env) -> Result<Object, E
         _ => Err(EvalError { msg: format!("If expression error: {:?}", cond) })
     }
 }
+
+
+/// Evaluate case(match) expressions
+fn eval_cases(_expr: &Object, _cases: &Object, _env: &Env) -> Result<Object, EvalError> {
+    todo!()
+}
+
 
 /// Handle bindings
 fn bindings(bindings: &[Object], env: &Env) -> Result<Env, EvalError> {
@@ -171,6 +178,9 @@ fn evaluate(expr: &Object, env: &Env) -> Result<Object, EvalError> {
                 let env = bindings(bs, env)?;
                 evaluate(expr, &env)
             },
+
+            // Case (Match) expression
+            [Var(op), expr, cases] if &op[..] == "case" => eval_cases(expr, cases, env),
 
             // Normal function application
             [f, xs @ .. ] => {

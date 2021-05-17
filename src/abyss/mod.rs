@@ -6,6 +6,7 @@ pub mod eval;
 pub mod logic;
 pub mod checker;
 pub mod env;
+pub mod repl;
 
 pub use self::core::*;
 pub use self::config::*;
