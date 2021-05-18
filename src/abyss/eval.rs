@@ -25,6 +25,27 @@ impl Eval<Object> for Object {
 }
 
 
+#[allow(dead_code)]
+pub fn env() -> Env {
+    //use Object::*;
+    let env = Env::new();
+    let f = |s: &str| s.parse::<Object>().unwrap().eval(&env).unwrap();
+    let env = vec![
+        ("fix", f("(lambda (f) ((lambda (x) (f (lambda (v) (x x v)))) (lambda (x) (f (lambda (v) (x x v))))))")),
+        ("+", f("(lambda (x y) (+ x y))")),
+        ("-", f("(lambda (x y) (- x y))")),
+        ("*", f("(lambda (x y) (* x y))")),
+        ("/", f("(lambda (x y) (/ x y))")),
+        ("cons", f("(lambda (x xs) (cons x xs))")),
+        ("head", f("(lambda (xs) (head xs))")),
+        ("tail", f("(lambda (xs) (tail xs))")),
+    ];
+    Env::new_from(env.into_iter().map(|(str, v)| (str.to_string(), v)).collect())
+}
+
+
+
+
 
 
 /// Test if the arithmetic operator is valid
@@ -161,12 +182,53 @@ fn apply(f: Object, x: Object) -> Result<Object, EvalError> {
     }
 }
 
-
+/// Check if variable is atom (normal form)
 fn is_atom(s: &str) -> bool {
     let atoms = ["True", "False"];
     atoms.iter().any(|&x| x == s)
 }
 
+/// Handle cons expression
+fn eval_cons(x: &Object, xs: &Object, env: &Env) -> Result<Object, EvalError> {
+    let xs = evaluate(xs, env)?;
+    match xs {
+        //Object::Nil => Ok(Object::List(vec![evaluate(x, env)?])),
+        Object::List(xs) => Ok(Object::List(vec![evaluate(x, env)?].into_iter().chain(xs.into_iter()).collect())),
+        _ => Err(EvalError {msg: format!("")})
+    }
+}
+
+/// Handle list constructions
+fn eval_list(xs: &[Object], env: &Env) -> Result<Object, EvalError> {
+    let mut v = vec![];
+    for x in xs {
+        let x = evaluate(x, env)?;
+        v.push(x);
+    }
+    Ok(Object::List(v))
+}
+
+
+fn eval_head(xs: &Object, env: &Env) -> Result<Object, EvalError> {
+    match evaluate(xs, env)? {
+        Object::List(xs) => match &xs[..] {
+            [x, ..] => Ok(x.clone()),
+            _ => Err(EvalError { msg: format!("Eval error: Can not get head of an empty list.") })
+        },
+        others => Err(EvalError { msg: format!("Eval error: Can not get head from {:?}", others) })
+    }
+}
+
+fn eval_tail(xs: &Object, env: &Env) -> Result<Object, EvalError> {
+    //println!("{:?}", xs);
+    match evaluate(xs, env)? {
+        Object::List(xs) => match &xs[..] {
+            [_, xs @ ..] => Ok(Object::List(xs.to_vec())),
+            _ => Err(EvalError { msg: format!("Eval error: Can not get tail of an empty list.") })
+        },
+        others => Err(EvalError { msg: format!("Eval error: Can not get tail from {:?}", others) })
+    }
+}
 
 
 
@@ -185,7 +247,7 @@ fn evaluate(expr: &Object, env: &Env) -> Result<Object, EvalError> {
         Str(_)     => Ok(expr.clone()),
         List(xs)   => match &xs[..] {
             // Empty list
-            [] => Ok(Nil),
+            [] => Ok(expr.clone()),
 
             // Lambda abstraction
             [Var(op), ps, expr] if &op[..] == "lambda" => {
@@ -207,6 +269,12 @@ fn evaluate(expr: &Object, env: &Env) -> Result<Object, EvalError> {
             // Case (Match) expression
             [Var(op), expr, List(cases)] if &op[..] == "case" => eval_cases(expr, cases, env),
 
+            // List operations
+            [Var(op), x, xs]   if &op[..] == "cons" => eval_cons(x, xs, env),
+            [Var(op), xs]      if &op[..] == "head" => eval_head(xs, env),
+            [Var(op), xs]      if &op[..] == "tail" => eval_tail(xs, env),
+            [Var(op), xs @ ..] if &op[..] == "list" => eval_list(xs, env),
+
             // Normal function application
             [f, xs @ .. ] => {
                 let mut fv = evaluate(f, env)?;
@@ -220,3 +288,4 @@ fn evaluate(expr: &Object, env: &Env) -> Result<Object, EvalError> {
         _ => Err(EvalError { msg: format!("Unknow expression: {:?}", expr) })
     }
 }
+

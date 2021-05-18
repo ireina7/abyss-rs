@@ -3,9 +3,9 @@
 use std::io::prelude::*;
 use std::io::{self, BufRead};
 use std::fmt;
-use super::env::Environment;
+//use super::env::Environment;
 use super::object::Object;
-use super::eval::Eval;
+use super::eval::{self, Eval};
 
 
 
@@ -50,11 +50,7 @@ pub fn repl() -> io::Result<()> {
         }
         let ast = line.parse::<Object>();
         //println!("{:?} =>", ast);
-        let mut env = Environment::new();
-        let y = "(lambda (f) ((lambda (x) (f (lambda (v) (x x v)))) (lambda (x) (f (lambda (v) (x x v))))))"
-            .parse::<Object>().unwrap();
-        let y = y.eval(&env).unwrap();
-        env.insert(String::from("fix"), y);
+        let env = eval::env();
         let res = ast
             .map_err(|crate::parser::ParseError {msg, ..}| super::eval::EvalError { msg })
             .and_then(|src| src.eval(&env));

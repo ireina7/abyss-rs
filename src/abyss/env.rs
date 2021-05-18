@@ -5,7 +5,7 @@ use std::borrow::Borrow;
 //use super::object::Object;
 
 
-#[allow(dead_code)]
+#[derive(Debug)]
 pub struct Environment<K, V> {
     env: HashMap<K, V>
 }
@@ -17,6 +17,10 @@ where
 {
     pub fn new() -> Self {
         Self { env: HashMap::new() }
+    }
+
+    pub fn new_from(env: HashMap<K, V>) -> Self {
+        Self { env }
     }
 
     pub fn get<Q: ?Sized>(&self, k: &Q) -> Option<&V>

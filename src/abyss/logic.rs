@@ -110,7 +110,7 @@ fn unify_objects(this: &Object, other: &Object, env: &mut Env) -> Result<(), Uni
         (_, Var(_)) => {
             unify_var(&other, &this, env)
         },
-        (List(xs), List(ys)) => {
+        (List(xs), List(ys)) if xs.len() == ys.len() => {
             for (x, y) in xs.iter().zip(ys.iter()) {
                 let res = unify_objects(x, y, env);
                 if let Err(_) = res {
