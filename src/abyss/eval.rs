@@ -15,10 +15,12 @@ pub use super::object::EvalError;
 /// The generic type `Output` is exposed in order to evaluate abyss expression to various
 /// target output in the future.
 pub trait Eval<Output>: fmt::Display + fmt::Debug + Clone {
-    fn eval(&self, env: &Env) -> Result<Output, EvalError>;
+    type Error;
+    fn eval(&self, env: &Env) -> Result<Output, Self::Error>;
 }
 
 impl Eval<Object> for Object {
+    type Error = EvalError;
     fn eval(&self, env: &Env) -> Result<Object, EvalError> {
         let mut env = env.clone();
         evaluate(self, &mut env)

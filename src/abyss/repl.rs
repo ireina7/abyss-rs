@@ -51,7 +51,7 @@ pub fn repl() -> io::Result<()> {
         }
         let ast = line.parse::<Object>();
         //println!("{:?} =>", ast);
-        let res = ast
+        let res: Result<Object, _> = ast
             .map_err(|crate::parser::ParseError {msg, ..}| super::eval::EvalError { msg })
             .and_then(|src| src.eval(&env));
         
