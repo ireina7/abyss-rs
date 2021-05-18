@@ -2,6 +2,7 @@
 
 use super::object::Object;
 use super::object::Env;
+use crate::logic::Unifiable;
 use std::fmt;
 //use super::parser;
 //use std::rc::Rc;
@@ -83,8 +84,32 @@ fn eval_if(cond: &Object, x: &Object, y: &Object, env: &Env) -> Result<Object, E
 
 
 /// Evaluate case(match) expressions
-fn eval_cases(_expr: &Object, _cases: &Object, _env: &Env) -> Result<Object, EvalError> {
-    todo!()
+fn eval_cases(expr: &Object, cases: &[Object], env: &Env) -> Result<Object, EvalError> {
+    use Object::*;
+    let expr = evaluate(expr, env)?;
+    for case in cases {
+        match case {
+            List(xs) => match &xs[..] {
+                [pat, res] => {
+                    let bind = pat.unify(&expr);
+                    if let Ok(bind) = bind {
+                        let mut env = env.clone();
+                        env.extend(bind);
+                        return evaluate(res, &env)
+                    } else {
+                        continue;
+                    }
+                },
+                _ => return Err(EvalError { 
+                    msg: format!("Case bindings should have format of `[pat result]`, instead of {:?}", case) 
+                }),
+            },
+            _ => return Err(EvalError { 
+                msg: format!("Case bindings should have format of `[pat result]`, instead of {:?}", case) 
+            }),
+        }
+    }
+    Err(EvalError { msg: format!("Case expression error") })
 }
 
 
@@ -180,7 +205,7 @@ fn evaluate(expr: &Object, env: &Env) -> Result<Object, EvalError> {
             },
 
             // Case (Match) expression
-            [Var(op), expr, cases] if &op[..] == "case" => eval_cases(expr, cases, env),
+            [Var(op), expr, List(cases)] if &op[..] == "case" => eval_cases(expr, cases, env),
 
             // Normal function application
             [f, xs @ .. ] => {

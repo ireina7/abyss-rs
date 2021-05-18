@@ -1,4 +1,5 @@
 use super::object::Object;
+//use super::env::Environment;
 use crate::logic::*;
 use std::collections::HashMap;
 
@@ -7,7 +8,7 @@ impl Unifiable for Object {
 
     type Key = String;
     fn unify(&self, other: &Self) -> Result<HashMap<Self::Key, Self>, UnifyError>
-        where Self: Sized 
+    where Self: Sized 
     {
         use Object::*;
         let mut env = HashMap::new();
