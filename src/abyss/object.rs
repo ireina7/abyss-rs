@@ -13,6 +13,13 @@ pub type Env = Environment<String, Object>;
 pub struct EvalError {
     pub msg: String
 }
+
+impl fmt::Display for EvalError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Error: {}", self.msg)
+    }
+}
+
 pub trait CustomObj: fmt::Display + fmt::Debug + CustomObjClone {
     fn eval(&self, env: &mut Env) -> Result<Object, EvalError>;
     fn hash_dyn(&self) -> i64;
@@ -55,6 +62,7 @@ pub enum Object {
     Str(String),
     List(Vec<Object>),
     Closure(Box<Object>, Box<Object>, Env),
+    Thunk(Box<Object>, Env),
     //Fix() need fixpoint here
     Custom(Box<dyn CustomObj>)
 }
@@ -78,6 +86,7 @@ impl Clone for Object {
             Str(s) => Str(s.clone()),
             List(os) => List(os.clone()),
             Closure(params, expr, env) => Closure(params.clone(), expr.clone(), env.clone()),
+            Thunk(x, env) => Thunk(x.clone(), env.clone()),
             Custom(obj) => Custom(obj.clone())
         }
     }
@@ -117,7 +126,8 @@ impl fmt::Debug for Object {
             Real(n)    => write!(f, "Real({})", n),
             Str(s)     => write!(f, "Str({})", s),
             List(xs)   => write!(f, "{}", format!("{}{}{}", "(", &xs.iter().map(|o| format!("{:?}", o)).collect::<Vec<_>>().join(" "), ")")),
-            Closure(_, _, _) => write!(f, "[closure]"),
+            Closure(ps, expr, _) => write!(f, "[closure: ({}) => {}]", ps, expr),
+            Thunk(x, _env) => write!(f, "Thunk({:?})", x),
             Custom(o)  => write!(f, "{}", o)
         }
     }
@@ -135,6 +145,7 @@ impl fmt::Display for Object {
             Str(s)     => write!(f, "\"{}\"", s),
             List(xs)   => write!(f, "{}", format!("{}{}{}", "(", &xs.iter().map(|o| format!("{}", o)).collect::<Vec<_>>().join(" "), ")")),
             Closure(_, _, _) => write!(f, "[closure]"),
+            Thunk(_, _) => write!(f, "[thunk]"),
             Custom(o)  => write!(f, "{}", o),
         }
     }

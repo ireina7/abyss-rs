@@ -20,27 +20,31 @@ pub trait Eval<Output>: fmt::Display + fmt::Debug + Clone {
 
 impl Eval<Object> for Object {
     fn eval(&self, env: &Env) -> Result<Object, EvalError> {
-        evaluate(self, env)
+        let mut env = env.clone();
+        evaluate(self, &mut env)
     }
 }
 
 
+/// The default environment for evaluation
 #[allow(dead_code)]
 pub fn env() -> Env {
     //use Object::*;
     let env = Env::new();
-    let f = |s: &str| s.parse::<Object>().unwrap().eval(&env).unwrap();
+    let f = |s: &str| s.parse::<Object>().unwrap().eval(&env).unwrap(); // You need to make sure no panic!
     let env = vec![
-        ("fix", f("(lambda (f) ((lambda (x) (f (lambda (v) (x x v)))) (lambda (x) (f (lambda (v) (x x v))))))")),
-        ("+", f("(lambda (x y) (+ x y))")),
-        ("-", f("(lambda (x y) (- x y))")),
-        ("*", f("(lambda (x y) (* x y))")),
-        ("/", f("(lambda (x y) (/ x y))")),
-        ("cons", f("(lambda (x xs) (cons x xs))")),
-        ("head", f("(lambda (xs) (head xs))")),
-        ("tail", f("(lambda (xs) (tail xs))")),
+        ("fix", "(lambda (f) ((lambda (x) (f (lambda (v) (x x v)))) (lambda (x) (f (lambda (v) (x x v))))))"),
+        //("fix", "(lambda (f) ((lambda (x) (f (x x))) (lambda (x) (f (x x)))))"),
+        ("lazy", "(lambda (x) (lazy x))"),
+        ("+", "(lambda (x y) (+ x y))"),
+        ("-", "(lambda (x y) (- x y))"),
+        ("*", "(lambda (x y) (* x y))"),
+        ("/", "(lambda (x y) (/ x y))"),
+        ("cons", "(lambda (x xs) (cons x xs))"),
+        ("head", "(lambda (xs) (head xs))"),
+        ("tail", "(lambda (xs) (tail xs))"),
     ];
-    Env::new_from(env.into_iter().map(|(str, v)| (str.to_string(), v)).collect())
+    Env::new_from(env.into_iter().map(|(str, src)| (str.to_string(), f(src))).collect())
 }
 
 
@@ -55,7 +59,7 @@ fn is_arith(op: &str) -> bool {
 
 
 /// Evaluate arithmetic expressions.
-fn eval_arith(expr: &Object, env: &Env) -> Result<Object, EvalError> {
+fn eval_arith(expr: &Object, env: &mut Env) -> Result<Object, EvalError> {
     use Object::*;
     
     let binary_integer: Vec<(&str, Box<dyn Fn(i32, i32) -> i32>)> = vec![
@@ -76,12 +80,12 @@ fn eval_arith(expr: &Object, env: &Env) -> Result<Object, EvalError> {
     match expr {
         List(xs) => match &xs[..] {
             [Var(op), x, y] if is_arith(&op) => {
-                let x = evaluate(x, env)?;
-                let y = evaluate(y, env)?;
+                let x = force(x, env)?;
+                let y = force(y, env)?;
                 match (x, y) {
                     (Integer(x), Integer(y)) => Ok(Integer((binary_integer[&op[..]])(x, y))),
                     (Real(x), Real(y)) => Ok(Real((binary_real[&op[..]])(x, y))),
-                    _ => Err(EvalError { msg: format!("Arith error") })
+                    others => Err(EvalError { msg: format!("Arith error: evaluating {:?}", others) })
                 }
             },
             _ => Err(EvalError { msg: format!("eval arithmetic error!") })
@@ -92,10 +96,10 @@ fn eval_arith(expr: &Object, env: &Env) -> Result<Object, EvalError> {
 
 
 /// Evaluate arithmetic expressions.
-fn eval_if(cond: &Object, x: &Object, y: &Object, env: &Env) -> Result<Object, EvalError> {
+fn eval_if(cond: &Object, x: &Object, y: &Object, env: &mut Env) -> Result<Object, EvalError> {
     use Object::*;
 
-    let cond = evaluate(cond, env)?;
+    let cond = force(cond, env)?;
     match cond {
         Var(s) if &s[..] == "True"  => evaluate(x, env),
         Var(s) if &s[..] == "False" => evaluate(y, env),
@@ -105,18 +109,17 @@ fn eval_if(cond: &Object, x: &Object, y: &Object, env: &Env) -> Result<Object, E
 
 
 /// Evaluate case(match) expressions
-fn eval_cases(expr: &Object, cases: &[Object], env: &Env) -> Result<Object, EvalError> {
+fn eval_cases(expr: &Object, cases: &[Object], env: &mut Env) -> Result<Object, EvalError> {
     use Object::*;
-    let expr = evaluate(expr, env)?;
+    let expr = force(expr, env)?;
     for case in cases {
         match case {
             List(xs) => match &xs[..] {
                 [pat, res] => {
                     let bind = pat.unify(&expr);
                     if let Ok(bind) = bind {
-                        let mut env = env.clone();
                         env.extend(bind);
-                        return evaluate(res, &env)
+                        return evaluate(res, env)
                     } else {
                         continue;
                     }
@@ -135,22 +138,22 @@ fn eval_cases(expr: &Object, cases: &[Object], env: &Env) -> Result<Object, Eval
 
 
 /// Handle bindings
-fn bindings(bindings: &[Object], env: &Env) -> Result<Env, EvalError> {
+fn bindings(bindings: &[Object], env: &mut Env) -> Result<(), EvalError> {
     use Object::*;
-    let mut env = env.clone();
     for binding in bindings {
         match binding {
             List(xs) => match &xs[..] {
                 [Var(s), expr] => {
-                    let v = evaluate(expr, &env)?;
-                    env.insert(s.clone(), v);
+                    let v = evaluate(expr, env)?;
+                    //let v = wrap(expr.clone(), env.clone());
+                    env.insert(s.clone(), v.clone());
                 }
                 _ => todo!() //unsupported yet!
             },
             _ => return Err(EvalError { msg: format!("Binding error: {:?}", binding) })
         }
     }
-    Ok(env)
+    Ok(())
 }
 
 /// Handle basic function application `(f x)`
@@ -164,16 +167,25 @@ fn apply(f: Object, x: Object) -> Result<Object, EvalError> {
             let mut env = env;
             match *params {
                 List(ps) => match &ps[..] {
-                    [ ] => evaluate(&*expr, &env),
-                    [Var(s)] => {
-                        env.insert(s.clone(), x);
-                        evaluate(&*expr, &env)
+                    [ ] => evaluate(&*expr, &mut env),
+                    [pat] => {
+                        let bind = pat.unify(&x);
+                        if let Ok(bind) = bind {
+                            env.extend(bind);
+                            evaluate(&*expr, &mut env)
+                        } else {
+                            Err(EvalError { msg: format!("Unification error") })
+                        }
                     },
-                    [Var(s), ss @ ..] => {
-                        env.insert(s.clone(), x);
-                        Ok(Closure(Box::new(List(ss.to_vec())), expr, env))
+                    [pat, ss @ ..] => {
+                        let bind = pat.unify(&x);
+                        if let Ok(bind) = bind {
+                            env.extend(bind);
+                            Ok(Closure(Box::new(List(ss.to_vec())), expr, env))
+                        } else {
+                            Err(EvalError { msg: format!("Unification error") })
+                        }
                     }
-                    _ => todo!()
                 },
                 _ => todo!()
             }
@@ -189,7 +201,7 @@ fn is_atom(s: &str) -> bool {
 }
 
 /// Handle cons expression
-fn eval_cons(x: &Object, xs: &Object, env: &Env) -> Result<Object, EvalError> {
+fn eval_cons(x: &Object, xs: &Object, env: &mut Env) -> Result<Object, EvalError> {
     let xs = evaluate(xs, env)?;
     match xs {
         //Object::Nil => Ok(Object::List(vec![evaluate(x, env)?])),
@@ -199,7 +211,7 @@ fn eval_cons(x: &Object, xs: &Object, env: &Env) -> Result<Object, EvalError> {
 }
 
 /// Handle list constructions
-fn eval_list(xs: &[Object], env: &Env) -> Result<Object, EvalError> {
+fn eval_list(xs: &[Object], env: &mut Env) -> Result<Object, EvalError> {
     let mut v = vec![];
     for x in xs {
         let x = evaluate(x, env)?;
@@ -209,7 +221,7 @@ fn eval_list(xs: &[Object], env: &Env) -> Result<Object, EvalError> {
 }
 
 
-fn eval_head(xs: &Object, env: &Env) -> Result<Object, EvalError> {
+fn eval_head(xs: &Object, env: &mut Env) -> Result<Object, EvalError> {
     match evaluate(xs, env)? {
         Object::List(xs) => match &xs[..] {
             [x, ..] => Ok(x.clone()),
@@ -219,7 +231,7 @@ fn eval_head(xs: &Object, env: &Env) -> Result<Object, EvalError> {
     }
 }
 
-fn eval_tail(xs: &Object, env: &Env) -> Result<Object, EvalError> {
+fn eval_tail(xs: &Object, env: &mut Env) -> Result<Object, EvalError> {
     //println!("{:?}", xs);
     match evaluate(xs, env)? {
         Object::List(xs) => match &xs[..] {
@@ -230,22 +242,48 @@ fn eval_tail(xs: &Object, env: &Env) -> Result<Object, EvalError> {
     }
 }
 
+fn force(thunk: &Object, env: &mut Env) -> Result<Object, EvalError> {
+    use Object::*;
+    let thunk = thunk.clone();
+    match thunk {
+        Thunk(expr, mut env) => evaluate(&expr, &mut env),
+        Var(s) => {
+            let v = env.get(&s).map(|x| x.clone()).ok_or(EvalError { msg: format!("No such variable: {}", s) })?;
+            match v {
+                Thunk(expr, mut env) => {
+                    //println!("{:?}", env);
+                    let xv = evaluate(&expr, &mut env)?;
+                    env.insert(s.clone(), xv.clone());
+                    Ok(xv)
+                },
+                _ => Ok(v)
+            }
+        }
+        _ => evaluate(&thunk, env)
+    }
+}
+
+fn wrap(expr: Object, env: Env) -> Object {
+    Object::Thunk(Box::new(expr), env)
+}
+
 
 
 
 /// The main evaluate function to calculate all abyss expressions
-fn evaluate(expr: &Object, env: &Env) -> Result<Object, EvalError> {
+fn evaluate(expr: &Object, env: &mut Env) -> Result<Object, EvalError> {
     use Object::*;
-
+    //println!("eval: {}", expr);
     match expr {
-        Nil        => Ok(Nil),
+        Nil         => Ok(Nil),
         Var(s) if is_atom(s) => Ok(expr.clone()),
-        Var(s)     => env.get(s).map(|x| x.clone()).ok_or(EvalError { msg: format!("No such variable: {}", s) }),
-        Symbol(_)  => Ok(expr.clone()),
-        Integer(_) => Ok(expr.clone()),
-        Real(_)    => Ok(expr.clone()),
-        Str(_)     => Ok(expr.clone()),
-        List(xs)   => match &xs[..] {
+        Var(_)      => force(expr, env),//env.get(s).map(|x| x.clone()).ok_or(EvalError { msg: format!("No such variable: {}", s) }),
+        Symbol(_)   => Ok(expr.clone()),
+        Integer(_)  => Ok(expr.clone()),
+        Real(_)     => Ok(expr.clone()),
+        Str(_)      => Ok(expr.clone()),
+        Thunk(_, _) => Ok(expr.clone()),
+        List(xs)    => match &xs[..] {
             // Empty list
             [] => Ok(expr.clone()),
 
@@ -253,6 +291,11 @@ fn evaluate(expr: &Object, env: &Env) -> Result<Object, EvalError> {
             [Var(op), ps, expr] if &op[..] == "lambda" => {
                 Ok(Object::closure(ps.clone(), expr.clone(), env.clone()))
             },
+
+            // Force evaluation
+            [Var(op), x] if &op[..] == "lazy" => {
+                Ok(wrap(x.clone(), env.clone()))
+            }
             
             // Basic arithmetic
             [Var(op), _, _] if is_arith(&op) => eval_arith(expr, env),
@@ -262,8 +305,8 @@ fn evaluate(expr: &Object, env: &Env) -> Result<Object, EvalError> {
 
             // Let bindings
             [Var(op), List(bs), expr] if &op[..] == "let" => {
-                let env = bindings(bs, env)?;
-                evaluate(expr, &env)
+                bindings(bs, env)?;
+                evaluate(expr, env)
             },
 
             // Case (Match) expression
@@ -277,9 +320,10 @@ fn evaluate(expr: &Object, env: &Env) -> Result<Object, EvalError> {
 
             // Normal function application
             [f, xs @ .. ] => {
-                let mut fv = evaluate(f, env)?;
+                let mut fv = force(f, env)?;
                 for x in xs {
                     let xv = evaluate(x, env)?;
+                    //let xv = wrap(x.clone(), env.clone());
                     fv = apply(fv, xv)?;
                 }
                 Ok(fv)

@@ -21,17 +21,18 @@ fn bye() {
 fn result<V, E>(res: Result<V, E>) -> String 
     where
         V: fmt::Debug + fmt::Display,
-        E: fmt::Debug
+        E: fmt::Debug + fmt::Display,
 {
     match res {
-        Ok(v)    => format!("{:?}", v  ),
-        Err(err) => format!("{:?}", err),
+        Ok(v)    => format!("{}", v  ),
+        Err(err) => format!("{}", err),
     }
 }
 
 pub fn repl() -> io::Result<()> {
     let stdin = io::stdin();
     //let mut input = String::new();
+    let env = eval::env();
     prompt("abyss");
     for line in stdin.lock().lines() {
 
@@ -50,7 +51,6 @@ pub fn repl() -> io::Result<()> {
         }
         let ast = line.parse::<Object>();
         //println!("{:?} =>", ast);
-        let env = eval::env();
         let res = ast
             .map_err(|crate::parser::ParseError {msg, ..}| super::eval::EvalError { msg })
             .and_then(|src| src.eval(&env));
