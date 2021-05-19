@@ -5,7 +5,7 @@ use super::object::Env;
 use crate::logic::Unifiable;
 use std::fmt;
 //use super::parser;
-//use std::rc::Rc;
+use std::rc::Rc;
 use super::config::HashMap;
 pub use super::object::EvalError;
 
@@ -33,7 +33,7 @@ impl Eval<Object> for Object {
 pub fn env() -> Env {
     //use Object::*;
     let env = Env::new();
-    let f = |s: &str| s.parse::<Object>().unwrap().eval(&env).unwrap(); // You need to make sure no panic!
+    let f = |s: &str| Rc::new(s.parse::<Object>().unwrap().eval(&env).unwrap()); // You need to make sure no panic!
     let env = vec![
         ("fix", "(lambda (f) ((lambda (x) (f (lambda (v) (x x v)))) (lambda (x) (f (lambda (v) (x x v))))))"),
         //("fix", "(lambda (f) ((lambda (x) (f (x x))) (lambda (x) (f (x x)))))"),
@@ -54,7 +54,7 @@ fn wrap(name: Option<String>, expr: Object, env: Env) -> Result<Object, EvalErro
     use Object::*;
     match expr {
         Nil         => Ok(Nil),
-        Var(s)      => env.get(&s).map(|x| x.clone()).ok_or(EvalError { msg: format!("No such variable: {}", s) }),
+        Var(s)      => env.get(&s).map(|x| (**x).clone()).ok_or(EvalError { msg: format!("No such variable: {}", s) }),
         Symbol(_)   => Ok(expr),
         Integer(_)  => Ok(expr),
         Real(_)     => Ok(expr),
@@ -147,7 +147,8 @@ fn eval_cases(expr: &Object, cases: &[Object], env: &mut Env) -> Result<Object, 
             List(xs) => match &xs[..] {
                 [pat, res] => {
                     let bind = pat.unify(&expr);
-                    if let Ok(bind) = bind {
+                    if let Ok(mut bind) = bind {
+                        let bind: HashMap<String, Rc<Object>> = bind.iter_mut().map(|(k, v)| (k.clone(), Rc::new(v.clone()))).collect();
                         env.extend(bind);
                         return evaluate(res, env)
                     } else {
@@ -182,7 +183,7 @@ fn bindings(bindings: &[Object], env: &mut Env) -> Result<(), EvalError> {
                         },
                         others => others,
                     };
-                    env.insert(s.clone(), v.clone());
+                    env.insert(s.clone(), Rc::new(v.clone()));
                 }
                 _ => todo!() //unsupported yet!
             },
@@ -209,11 +210,12 @@ fn apply(f: Object, x: Object) -> Result<Object, EvalError> {
                     [ ] => evaluate(&*expr, &mut env),
                     [pat] => {
                         let bind = pat.unify(&x);
-                        if let Ok(bind) = bind {
+                        if let Ok(mut bind) = bind {
+                            let bind: HashMap<String, Rc<Object>> = bind.iter_mut().map(|(k, v)| (k.clone(), Rc::new(v.clone()))).collect();
                             if let Some(name) = name {
                                 env.insert(
                                     name.clone(), 
-                                    Closure(Some(name.clone()), Box::new(List(ps.to_vec())), expr.clone(), env.clone())
+                                    Rc::new(Closure(Some(name.clone()), Box::new(List(ps.to_vec())), expr.clone(), env.clone()))
                                 );
                             }
                             //println!("{:?}", ps);
@@ -226,11 +228,12 @@ fn apply(f: Object, x: Object) -> Result<Object, EvalError> {
                     },
                     [pat, ss @ ..] => {
                         let bind = pat.unify(&x);
-                        if let Ok(bind) = bind {
+                        if let Ok(mut bind) = bind {
+                            let bind: HashMap<String, Rc<Object>> = bind.iter_mut().map(|(k, v)| (k.clone(), Rc::new(v.clone()))).collect();
                             if let Some(name) = name.clone() {
                                 env.insert(
                                     name.clone(),
-                                    Closure(Some(name.clone()), Box::new(List(ps.to_vec())), expr.clone(), env.clone())
+                                    Rc::new(Closure(Some(name.clone()), Box::new(List(ps.to_vec())), expr.clone(), env.clone()))
                                 );
                             }
                             
@@ -307,7 +310,7 @@ fn eval_thunk(thunk: &Object) -> Result<Object, EvalError> {
             evaluate(&expr, &mut env)
         },
         Thunk(Some(name), expr, mut env) => {
-            env.insert(name.clone(), thunk.clone());
+            env.insert(name.clone(), Rc::new(thunk.clone()));
             evaluate(&expr, &mut env)
         },
         _ => Err(EvalError { msg: format!("Error while evaluating thunk: {:?}", thunk) })
@@ -327,7 +330,7 @@ pub fn evaluate(expr: &Object, env: &mut Env) -> Result<Object, EvalError> {
     let ans = match expr {
         Nil         => Ok(Nil),
         Var(s) if is_atom(s) => Ok(expr.clone()),
-        Var(s)      => env.get(s).map(|x| x.clone()).ok_or(EvalError { msg: format!("No such variable: {}", s) }),
+        Var(s)      => env.get(s).map(|x| (**x).clone()).ok_or(EvalError { msg: format!("No such variable: {}", s) }),
         Symbol(_)   => Ok(expr.clone()),
         Integer(_)  => Ok(expr.clone()),
         Real(_)     => Ok(expr.clone()),
@@ -389,6 +392,9 @@ pub fn evaluate(expr: &Object, env: &mut Env) -> Result<Object, EvalError> {
 
 
 
+
+
+/*
 
 #[allow(dead_code)]
 pub mod lazy {
@@ -728,3 +734,4 @@ pub fn evaluate(expr: &Object, env: &mut Env) -> Result<Object, EvalError> {
 
 }//end mod lazy
 
+*/

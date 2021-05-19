@@ -34,7 +34,7 @@ fn check(expr: &Object, env: &mut Env, tnv: &mut Env) -> Result<Object, CheckerE
     let tag = |s: &str| Var(s.to_string());
     match expr {
         Nil         => Ok(Nil),
-        Var(s)      => tnv.get(s).map(|x| x.clone()).ok_or(CheckerError { msg: format!("No such variable: {}", s) }),
+        Var(s)      => tnv.get(s).map(|x| (**x).clone()).ok_or(CheckerError { msg: format!("No such variable: {}", s) }),
         Symbol(_)   => Ok(tag("Symbol")),
         Integer(_)  => Ok(tag("Int")),
         Real(_)     => Ok(tag("Real")),

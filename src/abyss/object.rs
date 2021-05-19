@@ -3,11 +3,11 @@ use std::cmp;
 use std::hash::{ Hash, Hasher };
 //use super::config::*;
 use super::env::Environment;
-//use std::rc::Rc;
+use std::rc::Rc;
 //use std::cell::RefCell;
 
 
-pub type Env = Environment<String, Object>;
+pub type Env = Environment<String, Rc<Object>>;
 
 #[derive(Clone, Debug)]
 pub struct EvalError {
