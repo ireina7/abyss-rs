@@ -276,30 +276,30 @@ fn eval_tail(xs: &Object, env: &mut Env) -> Result<Object, EvalError> {
     }
 }
 
+
+fn eval_thunk(thunk: &Object) -> Result<Object, EvalError> {
+    use Object::*;
+    match thunk.clone() {
+        Thunk(None, expr, mut env) => evaluate(&expr, &mut env),
+        Thunk(Some(name), expr, mut env) => {
+            env.insert(name.clone(), thunk.clone());
+            evaluate(&expr, &mut env)
+        },
+        _ => Err(EvalError { msg: format!("Error while evaluating thunk: {:?}", thunk) })
+    }
+}
+
+
 fn force(thunk: &Object, env: &mut Env) -> Result<Object, EvalError> {
     use Object::*;
     let thunk_ = thunk.clone();
     //println!("\n{:?} ==> {:?}", thunk, env);
     match thunk_ {
-        Thunk(None, expr, mut env) => evaluate(&expr, &mut env),
-        Thunk(Some(name), expr, mut env) => {
-            env.insert(name, thunk.clone());
-            evaluate(&expr, &mut env)
-        },
+        Thunk(_, _, _) => eval_thunk(thunk),
         Var(s) => {
             let v = env.get(&s).map(|x| x.clone()).ok_or(EvalError { msg: format!("No such variable: {}", s) })?;
-            match v {
-                Thunk(None, expr, mut env) => {
-                    //println!("{:?}", env);
-                    let xv = evaluate(&expr, &mut env)?;
-                    env.insert(s.clone(), xv.clone());
-                    Ok(xv)
-                },
-                Thunk(Some(name), expr, mut env) => {
-                    env.insert(name.clone(), Thunk(Some(name), expr.clone(), env.clone()));
-                    let xv = evaluate(&expr, &mut env)?;
-                    Ok(xv)
-                }
+            match &v {
+                Thunk(_, _, _) => eval_thunk(&v),
                 _ => Ok(v)
             }
         }
