@@ -57,7 +57,7 @@ pub enum Object {
     Nil,
     Var(String),
     Symbol(String),
-    Integer(i32),
+    Integer(i64),
     Real(f64),
     Str(String),
     List(Vec<Object>),
@@ -126,7 +126,7 @@ impl fmt::Debug for Object {
             Real(n)    => write!(f, "Real({})", n),
             Str(s)     => write!(f, "Str({})", s),
             List(xs)   => write!(f, "{}", format!("{}{}{}", "(", &xs.iter().map(|o| format!("{:?}", o)).collect::<Vec<_>>().join(" "), ")")),
-            Closure(name, ps, expr, _) => write!(f, "[closure: {:?}({}) => {}]", name, ps, expr),
+            Closure(name, ps, expr, _) => write!(f, "[closure: {:?}{} => {}]", name, ps, expr),
             Thunk(name, x, _env) => write!(f, "Thunk: {:?}({:?})", name, x),
             Custom(o)  => write!(f, "{}", o)
         }

@@ -3,11 +3,10 @@ mod parser;
 mod logic;
 
 use abyss::repl;
+use abyss::config;
 use std::thread;
 
 
-
-const STACK_SIZE: usize = 100 * 1024 * 1024;
 
 fn run() -> std::io::Result<()> {
     repl()
@@ -16,7 +15,7 @@ fn run() -> std::io::Result<()> {
 fn main() -> std::io::Result<()> {
     // Spawn thread with explicit stack size
     let child = thread::Builder::new()
-        .stack_size(STACK_SIZE)
+        .stack_size(config::STACK_SIZE)
         .spawn(run)
         .unwrap();
 
