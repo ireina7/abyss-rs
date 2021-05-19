@@ -1,8 +1,7 @@
 use crate::abyss;
+use crate::logic::Unifiable;
 use abyss::object::Object;
 use abyss::object::Env;
-use crate::logic::Unifiable;
-//use super::parser;
 use std::rc::Rc;
 use abyss::config::HashMap;
 use abyss::eval::core::*;
@@ -20,22 +19,11 @@ fn is_arith(op: &str) -> bool {
 /// Evaluate arithmetic expressions.
 fn eval_arith(expr: &Object, env: &mut Env) -> Result<Object, EvalError> {
     use Object::*;
-    
-    let binary_integer: Vec<(&str, Box<dyn Fn(i64, i64) -> i64>)> = vec![
-        ("+", Box::new(move |a, b| a + b)),
-        ("-", Box::new(move |a, b| a - b)),
-        ("*", Box::new(move |a, b| a * b)),
-        ("/", Box::new(move |a, b| a / b)),
-    ];
-    let binary_integer: HashMap<&str, Box<dyn Fn(i64, i64) -> i64>> = binary_integer.into_iter().collect();
 
-    let binary_real: Vec<(&str, Box<dyn Fn(f64, f64) -> f64>)> = vec![
-        ("+", Box::new(move |a, b| a + b)),
-        ("-", Box::new(move |a, b| a - b)),
-        ("*", Box::new(move |a, b| a * b)),
-        ("/", Box::new(move |a, b| a / b)),
-    ];
-    let binary_real: HashMap<&str, Box<dyn Fn(f64, f64) -> f64>> = binary_real.into_iter().collect();
+    let binary_integer: HashMap<&str, &fn(i64, i64) -> i64> = 
+        atom::BINARY_ARITH_INTEGER.iter().map(|(k, v)| (*k, v)).collect();
+    let binary_real: HashMap<&str, &fn(f64, f64) -> f64> = 
+        atom::BINARY_ARITH_REAL.iter().map(|(k, v)| (*k, v)).collect();
     match expr {
         List(xs) => match &xs[..] {
             [Var(op), x, y] if is_arith(&op) => {
@@ -66,7 +54,7 @@ fn eval_if(cond: &Object, x: &Object, y: &Object, env: &mut Env) -> Result<Objec
     }
 }
 
-//(let ((gen (lambda (s n) (case n ((0 ()) (n (cons s (gen (- n 1))))))))) (circle 'TT 7))
+
 
 /// Evaluate case(match) expressions
 fn eval_cases(expr: &Object, cases: &[Object], env: &mut Env) -> Result<Object, EvalError> {
@@ -248,7 +236,7 @@ fn eval_tail(xs: &Object, env: &mut Env) -> Result<Object, EvalError> {
     }
 }
 
-
+/// Thunk evaluation
 fn eval_thunk(thunk: &Object) -> Result<Object, EvalError> {
     //println!("\nthunk: {:?}", thunk);
     use Object::*;
@@ -265,7 +253,7 @@ fn eval_thunk(thunk: &Object) -> Result<Object, EvalError> {
     }
 }
 
-
+/// Force strict evaluation
 fn force(thunk: &Object, env: &mut Env) -> Result<Object, EvalError> {
     //println!("\nforce: {} in {:?}", thunk, env);
     use Object::*;

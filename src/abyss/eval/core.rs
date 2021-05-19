@@ -49,3 +49,31 @@ pub fn wrap(name: Option<String>, expr: Object, env: Env) -> Result<Object, Eval
     }
 }
 
+
+
+
+pub mod atom {
+    fn add_i(a: i64, b: i64) -> i64 { a + b }
+    fn sub_i(a: i64, b: i64) -> i64 { a - b }
+    fn mul_i(a: i64, b: i64) -> i64 { a * b }
+    fn div_i(a: i64, b: i64) -> i64 { a / b }
+
+    pub const BINARY_ARITH_INTEGER: [(&str, fn(i64, i64) -> i64); 4] = [
+        ("+", add_i),
+        ("-", sub_i),
+        ("*", mul_i),
+        ("/", div_i),
+    ];
+
+    fn add_f(a: f64, b: f64) -> f64 { a + b }
+    fn sub_f(a: f64, b: f64) -> f64 { a - b }
+    fn mul_f(a: f64, b: f64) -> f64 { a * b }
+    fn div_f(a: f64, b: f64) -> f64 { a / b }
+
+    pub const BINARY_ARITH_REAL: [(&str, fn(f64, f64) -> f64); 4] = [
+        ("+", add_f),
+        ("-", sub_f),
+        ("*", mul_f),
+        ("/", div_f),
+    ];
+}

@@ -26,21 +26,8 @@ fn is_arith(op: &str) -> bool {
 fn eval_arith(expr: &Object, env: &mut Env) -> Result<Object, EvalError> {
     use Object::*;
     
-    let binary_integer: Vec<(&str, Box<dyn Fn(i64, i64) -> i64>)> = vec![
-        ("+", Box::new(move |a, b| a + b)),
-        ("-", Box::new(move |a, b| a - b)),
-        ("*", Box::new(move |a, b| a * b)),
-        ("/", Box::new(move |a, b| a / b)),
-    ];
-    let binary_integer: HashMap<&str, Box<dyn Fn(i64, i64) -> i64>> = binary_integer.into_iter().collect();
-
-    let binary_real: Vec<(&str, Box<dyn Fn(f64, f64) -> f64>)> = vec![
-        ("+", Box::new(move |a, b| a + b)),
-        ("-", Box::new(move |a, b| a - b)),
-        ("*", Box::new(move |a, b| a * b)),
-        ("/", Box::new(move |a, b| a / b)),
-    ];
-    let binary_real: HashMap<&str, Box<dyn Fn(f64, f64) -> f64>> = binary_real.into_iter().collect();
+    let binary_integer: HashMap<&str, &fn(i64, i64) -> i64> = atom::BINARY_ARITH_INTEGER.iter().map(|(k, v)| (*k, v)).collect();
+    let binary_real: HashMap<&str, &fn(f64, f64) -> f64> = atom::BINARY_ARITH_REAL.iter().map(|(k, v)| (*k, v)).collect();
     match expr {
         List(xs) => match &xs[..] {
             [Var(op), x, y] if is_arith(&op) => {
