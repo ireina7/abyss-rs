@@ -119,7 +119,7 @@ fn unify_objects(this: &Object, other: &Object, env: &mut Env) -> Result<(), Uni
             }
             Ok(())
         },
-        (Closure(_, _, _), _) | (_, Closure(_, _, _)) => 
+        (Closure(_, _, _, _), _) | (_, Closure(_, _, _, _)) => 
              Err(UnifyError { msg: format!("Unification error: Comparing {:?} with {:?}.", this, other) }),
         _ => Err(UnifyError { msg: format!("Unification error: Comparing {:?} with {:?}.", this, other) }),
     }

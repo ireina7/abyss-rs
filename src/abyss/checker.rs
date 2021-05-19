@@ -39,7 +39,7 @@ fn check(expr: &Object, env: &mut Env, tnv: &mut Env) -> Result<Object, CheckerE
         Integer(_)  => Ok(tag("Int")),
         Real(_)     => Ok(tag("Real")),
         Str(_)      => Ok(tag("String")),
-        Thunk(_, _) => Ok(expr.clone()),
+        Thunk(_, _, _) => Ok(expr.clone()),
         List(xs)    => match &xs[..] {
 
             // Empty list

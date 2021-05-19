@@ -61,15 +61,15 @@ pub enum Object {
     Real(f64),
     Str(String),
     List(Vec<Object>),
-    Closure(Box<Object>, Box<Object>, Env),
-    Thunk(Box<Object>, Env),
+    Closure(Option<String>, Box<Object>, Box<Object>, Env),
+    Thunk(Option<String>, Box<Object>, Env),
     //Fix() need fixpoint here
     Custom(Box<dyn CustomObj>)
 }
 
 impl Object {
     pub fn closure(ps: Object, expr: Object, env: Env) -> Self {
-        Self::Closure(Box::new(ps), Box::new(expr), env.clone())
+        Self::Closure(None, Box::new(ps), Box::new(expr), env.clone())
     }
 }
 
@@ -85,8 +85,8 @@ impl Clone for Object {
             Real(n) => Real(*n),
             Str(s) => Str(s.clone()),
             List(os) => List(os.clone()),
-            Closure(params, expr, env) => Closure(params.clone(), expr.clone(), env.clone()),
-            Thunk(x, env) => Thunk(x.clone(), env.clone()),
+            Closure(name, params, expr, env) => Closure(name.clone(), params.clone(), expr.clone(), env.clone()),
+            Thunk(name, x, env) => Thunk(name.clone(), x.clone(), env.clone()),
             Custom(obj) => Custom(obj.clone())
         }
     }
@@ -126,8 +126,8 @@ impl fmt::Debug for Object {
             Real(n)    => write!(f, "Real({})", n),
             Str(s)     => write!(f, "Str({})", s),
             List(xs)   => write!(f, "{}", format!("{}{}{}", "(", &xs.iter().map(|o| format!("{:?}", o)).collect::<Vec<_>>().join(" "), ")")),
-            Closure(ps, expr, _) => write!(f, "[closure: ({}) => {}]", ps, expr),
-            Thunk(x, _env) => write!(f, "Thunk({:?})", x),
+            Closure(name, ps, expr, _) => write!(f, "[closure: {:?}({}) => {}]", name, ps, expr),
+            Thunk(name, x, _env) => write!(f, "Thunk: {:?}({:?})", name, x),
             Custom(o)  => write!(f, "{}", o)
         }
     }
@@ -144,8 +144,8 @@ impl fmt::Display for Object {
             Real(n)    => write!(f, "{}", n),
             Str(s)     => write!(f, "\"{}\"", s),
             List(xs)   => write!(f, "{}", format!("{}{}{}", "(", &xs.iter().map(|o| format!("{}", o)).collect::<Vec<_>>().join(" "), ")")),
-            Closure(_, _, _) => write!(f, "[closure]"),
-            Thunk(_, _) => write!(f, "[thunk]"),
+            Closure(name, _, _, _) => write!(f, "[closure: {:?}]", name),
+            Thunk(name, _, _) => write!(f, "[thunk: {:?}]", name),
             Custom(o)  => write!(f, "{}", o),
         }
     }

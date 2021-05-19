@@ -35,8 +35,8 @@ pub fn env() -> Env {
     let env = Env::new();
     let f = |s: &str| s.parse::<Object>().unwrap().eval(&env).unwrap(); // You need to make sure no panic!
     let env = vec![
-        ("fix", "(lambda (f) ((lambda (x) (f (lambda (v) (x x v)))) (lambda (x) (f (lambda (v) (x x v))))))"),
-        //("fix", "(lambda (f) ((lambda (x) (f (x x))) (lambda (x) (f (x x)))))"),
+        //("fix", "(lambda (f) ((lambda (x) (f (lambda (v) (x x v)))) (lambda (x) (f (lambda (v) (x x v))))))"),
+        ("fix", "(lambda (f) ((lambda (x) (f (x x))) (lambda (x) (f (x x)))))"),
         ("lazy", "(lambda (x) (lazy x))"),
         ("+", "(lambda (x y) (+ x y))"),
         ("-", "(lambda (x y) (- x y))"),
@@ -146,8 +146,24 @@ fn bindings(bindings: &[Object], env: &mut Env) -> Result<(), EvalError> {
         match binding {
             List(xs) => match &xs[..] {
                 [Var(s), expr] => {
-                    let v = evaluate(expr, env)?;
+                    let v = match expr {
+                        List(xs) => match &xs[..] {
+                            [Var(op), ..] if &op[..] == "lambda" => evaluate(expr, env)?,
+                            others => List(others.to_vec())
+                        }
+                        others => others.clone()
+                    };
                     //let v = wrap(expr.clone(), env.clone());
+                    let v = match v {
+                        Closure(None, ps, expr, env) => {
+                            Closure(Some(s.clone()), ps, expr, env)
+                        },
+                        others => {
+                            let thunk = Thunk(Some(s.clone()), Box::new(others.clone()), env.clone());
+                            //env.insert(s.clone(), thunk.clone());
+                            thunk
+                        }
+                    };
                     env.insert(s.clone(), v.clone());
                 }
                 _ => todo!() //unsupported yet!
@@ -155,6 +171,7 @@ fn bindings(bindings: &[Object], env: &mut Env) -> Result<(), EvalError> {
             _ => return Err(EvalError { msg: format!("Binding error: {:?}", binding) })
         }
     }
+    //println!(">> {:?}", env);
     Ok(())
 }
 
@@ -163,16 +180,24 @@ fn bindings(bindings: &[Object], env: &mut Env) -> Result<(), EvalError> {
 /// `f` and `x` should have been evaluated!
 fn apply(f: Object, x: Object) -> Result<Object, EvalError> {
     use Object::*;
+    
     match f {
-        Closure(params, expr, env) => {
+        Closure(name, params, expr, env) => {
             // Unification should be invoked here, but we only allow single variable here to debug...
             let mut env = env;
+            //println!("\n>>>>> {:?}", env);
             match *params {
                 List(ps) => match &ps[..] {
                     [ ] => evaluate(&*expr, &mut env),
                     [pat] => {
                         let bind = pat.unify(&x);
                         if let Ok(bind) = bind {
+                            if let Some(name) = name {
+                                env.insert(
+                                    name.clone(), 
+                                    Closure(Some(name.clone()), Box::new(List(ps.to_vec())), expr.clone(), env.clone())
+                                );
+                            }
                             env.extend(bind);
                             evaluate(&*expr, &mut env)
                         } else {
@@ -182,8 +207,15 @@ fn apply(f: Object, x: Object) -> Result<Object, EvalError> {
                     [pat, ss @ ..] => {
                         let bind = pat.unify(&x);
                         if let Ok(bind) = bind {
+                            if let Some(name) = name.clone() {
+                                env.insert(
+                                    name.clone(), 
+                                    Closure(Some(name.clone()), Box::new(List(ps.to_vec())), expr.clone(), env.clone())
+                                );
+                            }
+                            
                             env.extend(bind);
-                            Ok(Closure(Box::new(List(ss.to_vec())), expr, env))
+                            Ok(Closure(name, Box::new(List(ss.to_vec())), expr, env))
                         } else {
                             Err(EvalError { msg: format!("Unification error") })
                         }
@@ -246,18 +278,28 @@ fn eval_tail(xs: &Object, env: &mut Env) -> Result<Object, EvalError> {
 
 fn force(thunk: &Object, env: &mut Env) -> Result<Object, EvalError> {
     use Object::*;
-    let thunk = thunk.clone();
-    match thunk {
-        Thunk(expr, mut env) => evaluate(&expr, &mut env),
+    let thunk_ = thunk.clone();
+    //println!("\n{:?} ==> {:?}", thunk, env);
+    match thunk_ {
+        Thunk(None, expr, mut env) => evaluate(&expr, &mut env),
+        Thunk(Some(name), expr, mut env) => {
+            env.insert(name, thunk.clone());
+            evaluate(&expr, &mut env)
+        },
         Var(s) => {
             let v = env.get(&s).map(|x| x.clone()).ok_or(EvalError { msg: format!("No such variable: {}", s) })?;
             match v {
-                Thunk(expr, mut env) => {
+                Thunk(None, expr, mut env) => {
                     //println!("{:?}", env);
                     let xv = evaluate(&expr, &mut env)?;
                     env.insert(s.clone(), xv.clone());
                     Ok(xv)
                 },
+                Thunk(Some(name), expr, mut env) => {
+                    env.insert(name.clone(), Thunk(Some(name), expr.clone(), env.clone()));
+                    let xv = evaluate(&expr, &mut env)?;
+                    Ok(xv)
+                }
                 _ => Ok(v)
             }
         }
@@ -266,7 +308,7 @@ fn force(thunk: &Object, env: &mut Env) -> Result<Object, EvalError> {
 }
 
 fn wrap(expr: Object, env: Env) -> Object {
-    Object::Thunk(Box::new(expr), env)
+    Object::Thunk(None, Box::new(expr), env)
 }
 
 
@@ -275,8 +317,8 @@ fn wrap(expr: Object, env: Env) -> Object {
 /// The main evaluate function to calculate all abyss expressions
 fn evaluate(expr: &Object, env: &mut Env) -> Result<Object, EvalError> {
     use Object::*;
-    //println!("eval: {}", expr);
-    match expr {
+    //println!("\neval: {}", expr);
+    let ans = match expr {
         Nil         => Ok(Nil),
         Var(s) if is_atom(s) => Ok(expr.clone()),
         Var(_)      => force(expr, env),//env.get(s).map(|x| x.clone()).ok_or(EvalError { msg: format!("No such variable: {}", s) }),
@@ -284,7 +326,7 @@ fn evaluate(expr: &Object, env: &mut Env) -> Result<Object, EvalError> {
         Integer(_)  => Ok(expr.clone()),
         Real(_)     => Ok(expr.clone()),
         Str(_)      => Ok(expr.clone()),
-        Thunk(_, _) => Ok(expr.clone()),
+        Thunk(_, _, _) => Ok(expr.clone()),
         List(xs)    => match &xs[..] {
             // Empty list
             [] => Ok(expr.clone()),
@@ -308,6 +350,7 @@ fn evaluate(expr: &Object, env: &mut Env) -> Result<Object, EvalError> {
             // Let bindings
             [Var(op), List(bs), expr] if &op[..] == "let" => {
                 bindings(bs, env)?;
+                //println!("{:?}", env);
                 evaluate(expr, env)
             },
 
@@ -324,14 +367,15 @@ fn evaluate(expr: &Object, env: &mut Env) -> Result<Object, EvalError> {
             [f, xs @ .. ] => {
                 let mut fv = force(f, env)?;
                 for x in xs {
-                    let xv = evaluate(x, env)?;
-                    //let xv = wrap(x.clone(), env.clone());
+                    //let xv = evaluate(x, env)?;
+                    let xv = wrap(x.clone(), env.clone());
                     fv = apply(fv, xv)?;
                 }
                 Ok(fv)
             }
         },
         _ => Err(EvalError { msg: format!("Unknow expression: {:?}", expr) })
-    }
+    };
+    ans
 }
 
