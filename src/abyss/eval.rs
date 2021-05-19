@@ -23,7 +23,7 @@ impl Eval<Object> for Object {
     type Error = EvalError;
     fn eval(&self, env: &Env) -> Result<Object, EvalError> {
         let mut env = env.clone();
-        lazy::evaluate(self, &mut env)
+        strict::evaluate(self, &mut env)
     }
 }
 
@@ -175,6 +175,13 @@ fn bindings(bindings: &[Object], env: &mut Env) -> Result<(), EvalError> {
             List(xs) => match &xs[..] {
                 [Var(s), expr] => {
                     let v = evaluate(expr, env)?;
+                    //let v = wrap(expr.clone(), env.clone());
+                    let v = match v {
+                        Closure(None, ps, expr, env) => {
+                            Closure(Some(s.clone()), ps, expr, env)
+                        },
+                        others => others,
+                    };
                     env.insert(s.clone(), v.clone());
                 }
                 _ => todo!() //unsupported yet!
