@@ -6,7 +6,7 @@ pub use super::object::{
     Object, Env, EvalError
 };
 pub use self::core::*;
-
+//use std::rc::Rc;
 
 
 impl Eval<Object> for Object {

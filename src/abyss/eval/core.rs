@@ -45,7 +45,7 @@ pub fn wrap(name: Option<String>, expr: Object, env: Env) -> Result<Object, Eval
         Real(_)     => Ok(expr),
         Str(_)      => Ok(expr),
         Thunk(_, _, _) => Ok(expr),
-        _ => Ok(Object::Thunk(name, Box::new(expr), env))
+        _ => Ok(Object::Thunk(name, Rc::new(expr), env))
     }
 }
 

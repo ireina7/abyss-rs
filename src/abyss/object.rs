@@ -61,15 +61,15 @@ pub enum Object {
     Real(f64),
     Str(String),
     List(Vec<Object>),
-    Closure(Option<String>, Box<Object>, Box<Object>, Env),
-    Thunk(Option<String>, Box<Object>, Env),
+    Closure(Option<String>, Rc<Object>, Rc<Object>, Env),
+    Thunk(Option<String>, Rc<Object>, Env),
     //Fix() need fixpoint here
     Custom(Box<dyn CustomObj>)
 }
 
 impl Object {
     pub fn closure(ps: Object, expr: Object, env: Env) -> Self {
-        Self::Closure(None, Box::new(ps), Box::new(expr), env.clone())
+        Self::Closure(None, Rc::new(ps), Rc::new(expr), env.clone())
     }
 }
 

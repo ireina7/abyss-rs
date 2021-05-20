@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use crate::abyss;
 use crate::logic::Unifiable;
 use abyss::object::Object;
@@ -6,7 +8,7 @@ use std::rc::Rc;
 use abyss::config::HashMap;
 use abyss::eval::core::*;
 pub use abyss::object::EvalError;
-
+use std::borrow::Borrow;
 
 
 
@@ -141,7 +143,7 @@ fn apply(f: Object, x: Object) -> Result<Object, EvalError> {
             // Unification should be invoked here, but we only allow single variable here to debug...
             let mut env = env;
             
-            match *params {
+            match params.borrow() {
                 List(ps) => match &ps[..] {
                     [ ] => evaluate(&*expr, &mut env),
                     [pat] => {
@@ -151,7 +153,7 @@ fn apply(f: Object, x: Object) -> Result<Object, EvalError> {
                             if let Some(name) = name {
                                 env.insert(
                                     name.clone(), 
-                                    Rc::new(Closure(Some(name), Box::new(List(ps.to_vec())), expr.clone(), env.clone()))
+                                    Rc::new(Closure(Some(name), Rc::new(List(ps.to_vec())), expr.clone(), env.clone()))
                                 );
                             }
                             //println!("{:?}", ps);
@@ -169,13 +171,13 @@ fn apply(f: Object, x: Object) -> Result<Object, EvalError> {
                             if let Some(name) = name {
                                 env.insert(
                                     name.clone(),
-                                    Rc::new(Closure(Some(name), Box::new(List(ps.to_vec())), expr.clone(), env.clone()))
+                                    Rc::new(Closure(Some(name), Rc::new(List(ps.to_vec())), expr.clone(), env.clone()))
                                 );
                             }
                             
                             env.extend(bind);
                             //println!("\napply: {:?}", env);
-                            Ok(Closure(None, Box::new(List(ss.to_vec())), expr, env))
+                            Ok(Closure(None, Rc::new(List(ss.to_vec())), expr, env))
                         } else {
                             Err(EvalError { msg: format!("Unification error") })
                         }
