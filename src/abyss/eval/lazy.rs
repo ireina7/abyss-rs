@@ -78,7 +78,7 @@ fn eval_cases(expr: &Object, cases: &[Object], env: &mut Env) -> Result<Object> 
                     msg: format!("Case bindings should have format of `[pat result]`, instead of {:?}", case) 
                 }),
             },
-            _ => return Err(EvalError { 
+            _ => return Err(EvalError {
                 msg: format!("Case bindings should have format of `[pat result]`, instead of {:?}", case) 
             }),
         }
@@ -114,7 +114,7 @@ fn bind(left: &Object, right: &Object, env: &mut Env) -> Result<()> {
         }
         (List(xs), expr) => match &xs[..] {
             [Var(f), ps @ ..] => {
-                let lambda = List(vec![Var("lambda".into()), List(ps.to_vec()), expr.clone()]);
+                let lambda = weak(ps.to_vec(), expr.clone());
                 bind(&Var(f.clone()), &lambda, env)?
             },
             _ => return Err(EvalError { msg: format!("Binding error: Invalid Binding {:?} and {:?}", left, right) })
@@ -332,6 +332,9 @@ pub fn evaluate(expr: &Object, env: &mut Env) -> Result<Object> {
             [Var(op), xs]      if &op[..] == "tail" => eval_tail(xs, env),
             [Var(op), xs @ ..] if &op[..] == "list" => eval_list(xs, env),
 
+            // Weak head normal terms (Data constructors)
+            [Cons(_), ..] => Ok(expr.clone()),
+
             // Normal function application
             [f, xs @ .. ] => {
                 let mut fv = force(f, env)?;
@@ -343,7 +346,7 @@ pub fn evaluate(expr: &Object, env: &mut Env) -> Result<Object> {
                 Ok(fv)
             }
         },
-        _ => Err(EvalError { msg: format!("Unknow expression: {:?}", expr) })
+        _ => Err(EvalError { msg: format!("Evaluation error: Unknow expression: {:?}", expr) })
     };
     ans
 }

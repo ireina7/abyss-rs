@@ -2,6 +2,7 @@ use std::fmt;
 use crate::abyss;
 use abyss::object::{Object, Env, EvalError};
 use std::rc::Rc;
+use std::ops::Deref;
 
 
 pub type Result<T> = std::result::Result<T, EvalError>;
@@ -50,6 +51,7 @@ pub fn wrap(name: Option<String>, expr: Object, env: Env) -> Result<Object> {
         Nil         => Ok(Nil),
         Var(s)      => env.get(&s).map(|x| (**x).clone()).ok_or(EvalError { msg: format!("No such variable: {}", s) }),
         Symbol(_)   => Ok(expr),
+        Cons(_)     => Ok(expr),
         Integer(_)  => Ok(expr),
         Real(_)     => Ok(expr),
         Str(_)      => Ok(expr),
@@ -58,9 +60,58 @@ pub fn wrap(name: Option<String>, expr: Object, env: Env) -> Result<Object> {
     }
 }
 
+/// Weak a term, i.e. term => lambda ps. term
+#[inline]
+pub fn weak(ps: Vec<Object>, expr: Object) -> Object {
+    use Object::*;
+    List(vec![Var("lambda".into()), List(ps), expr])
+}
+
+
+#[derive(Debug, PartialEq, Eq)]
+struct Pattern {
+    expr: Object
+}
+
+impl From<Object> for Pattern {
+    fn from(obj: Object) -> Self {
+        use Object::*;
+        fn pack(obj: Object) -> Pattern {
+            Pattern { expr: obj }
+        }
+        match obj {
+            Nil            => pack(Nil),
+            Var(_)         => pack(obj),
+            Symbol(_)      => pack(obj),
+            Cons(_)        => pack(obj),
+            Integer(_)     => pack(obj),
+            Real(_)        => pack(obj),
+            Str(_)         => pack(obj),
+            Thunk(_, _, _) => pack(obj),
+            List(xs) => match &xs[..] {
+                [Var(_op), _xs @ ..] => todo!(),
+                _ => todo!()
+            }
+            _ => todo!()
+        }
+    }
+}
+
+impl Deref for Pattern {
+    type Target = Object;
+    fn deref(&self) -> &Self::Target {
+        &self.expr
+    }
+}
 
 
 
+
+
+
+/// Module for all atom evaluations
+/// Including:
+/// + - * / == /= < > <= >=
 pub mod atom {
 
     use super::*;

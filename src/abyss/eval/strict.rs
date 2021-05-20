@@ -92,31 +92,52 @@ fn eval_cases(expr: &Object, cases: &[Object], env: &mut Env) -> Result<Object> 
 }
 
 
+fn bind(left: &Object, right: &Object, env: &mut Env) -> Result<()> {
+    use Object::*;
+    match (left, right) {
+        (Var(s), expr) => {
+            let v = evaluate(expr, env)?;
+            //let v = wrap(expr.clone(), env.clone());
+            let v = match v {
+                Closure(None, ps, expr, env) => {
+                    Closure(Some(s.clone()), ps, expr, env)
+                },
+                others => others,
+            };
+            env.insert(s.clone(), Rc::new(v.clone()));
+        }
+        (List(xs), expr) => match &xs[..] {
+            [Var(f), ps @ ..] => {
+                let lambda = weak(ps.to_vec(), expr.clone());
+                bind(&Var(f.clone()), &lambda, env)?
+            },
+            _ => return Err(EvalError { msg: format!("Binding error: Invalid Binding {:?} and {:?}", left, right) })
+        }
+        _ => return Err(EvalError { msg: format!("Binding error: Binding {:?} and {:?}", left, right) })
+    }
+    Ok(())
+}
+
+
+
 /// Handle bindings
 fn bindings(bindings: &[Object], env: &mut Env) -> Result<()> {
     use Object::*;
     for binding in bindings {
         match binding {
             List(xs) => match &xs[..] {
-                [Var(s), expr] => {
-                    let v = evaluate(expr, env)?;
-                    //let v = wrap(expr.clone(), env.clone());
-                    let v = match v {
-                        Closure(None, ps, expr, env) => {
-                            Closure(Some(s.clone()), ps, expr, env)
-                        },
-                        others => others,
-                    };
-                    env.insert(s.clone(), Rc::new(v.clone()));
+                [def, expr] => {
+                    bind(def, expr, env)?
                 }
-                _ => todo!() //unsupported yet!
+                _ => return Err(EvalError { msg: format!("Binding error: {:?}", binding) })
             },
             _ => return Err(EvalError { msg: format!("Binding error: {:?}", binding) })
         }
     }
-    //println!(">> {:?}", env);
     Ok(())
 }
+
+
 //(let ((gen (lambda (s n) (case n ((0 ()) (n (cons s (gen s (- n 1))))))))) (gen 'T_T 200))
 /// Handle basic function application `(f x)`
 /// 
@@ -294,6 +315,9 @@ pub fn evaluate(expr: &Object, env: &mut Env) -> Result<Object> {
             [Var(op), xs]      if &op[..] == "head" => eval_head(xs, env),
             [Var(op), xs]      if &op[..] == "tail" => eval_tail(xs, env),
             [Var(op), xs @ ..] if &op[..] == "list" => eval_list(xs, env),
+
+            // Weak head normal terms (Data constructors)
+            [Cons(_), ..] => Ok(expr.clone()),
 
             // Normal function application
             [f, xs @ .. ] => {
