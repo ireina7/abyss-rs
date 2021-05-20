@@ -22,3 +22,16 @@ Rust implementation of Abyss programming language
 
 ## Type system
 - Dependent type system
+
+## Examples
+- Factorial
+```scheme
+(let (((fact n) (case n ((0 1) (n (* n (fact (- n 1)))))))) (fact 5))
+;==> 120
+```
+
+- Generating list
+```scheme
+(let (((gen s n) (case n ((0 ()) (n (cons s (gen s (- n 1)))))))) (gen 'T_T 10))
+;==> (T_T T_T T_T T_T T_T T_T T_T T_T T_T T_T)
+```
