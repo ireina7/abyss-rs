@@ -3,15 +3,17 @@ use crate::abyss;
 use abyss::object::{Object, Env, EvalError};
 use std::rc::Rc;
 
+
+pub type Result<T> = std::result::Result<T, EvalError>;
+
 /// The main Eval trait, should be able to display and debug (Clone to store in Env)
 /// 
 /// The generic type `Output` is exposed in order to evaluate abyss expression to various
 /// target output in the future.
 pub trait Eval<Output>: fmt::Display + fmt::Debug + Clone {
     type Error;
-    fn eval(&self, env: &Env) -> Result<Output, Self::Error>;
+    fn eval(&self, env: &Env) -> std::result::Result<Output, Self::Error>;
 }
-
 
 /// The default environment for evaluation
 #[allow(dead_code)]
@@ -42,7 +44,7 @@ pub fn env() -> Env {
 }
 
 
-pub fn wrap(name: Option<String>, expr: Object, env: Env) -> Result<Object, EvalError> {
+pub fn wrap(name: Option<String>, expr: Object, env: Env) -> Result<Object> {
     use Object::*;
     match expr {
         Nil         => Ok(Nil),
@@ -108,7 +110,7 @@ pub mod atom {
 
 
     /// Evaluate arithmetic expressions.
-    pub fn eval_arith(op: &str, ps: &[Object]) -> Result<Object, EvalError> {
+    pub fn eval_arith(op: &str, ps: &[Object]) -> Result<Object> {
         use Object::*;
 
         let binary_integer: HashMap<&str, &fn(i64, i64) -> i64> = 
@@ -125,7 +127,7 @@ pub mod atom {
 
     /// Evaluate atom eq
     #[inline]
-    pub fn eval_eq(ps: &[Object]) -> Result<Object, EvalError> {
+    pub fn eval_eq(ps: &[Object]) -> Result<Object> {
         use Object::*;
         match ps {
             [x, y] => Ok(if x == y { Var("True".into()) } else { Var("False".into()) }),
@@ -136,7 +138,7 @@ pub mod atom {
 
     /// Evaluate atom ne
     #[inline]
-    pub fn eval_ne(ps: &[Object]) -> Result<Object, EvalError> {
+    pub fn eval_ne(ps: &[Object]) -> Result<Object> {
         use Object::*;
         match ps {
             [x, y] => Ok(if x != y { Var("True".into()) } else { Var("False".into()) }),
@@ -146,7 +148,7 @@ pub mod atom {
     }
 
     #[inline]
-    pub fn eval_lt(ps: &[Object]) -> Result<Object, EvalError> {
+    pub fn eval_lt(ps: &[Object]) -> Result<Object> {
         use Object::*;
         match ps {
             [Integer(x), Integer(y)] => Ok(if x < y { Var("True".into()) } else { Var("False".into()) }),
@@ -155,7 +157,7 @@ pub mod atom {
     }
 
     #[inline]
-    pub fn eval_le(ps: &[Object]) -> Result<Object, EvalError> {
+    pub fn eval_le(ps: &[Object]) -> Result<Object> {
         use Object::*;
         match ps {
             [Integer(x), Integer(y)] => Ok(if x <= y { Var("True".into()) } else { Var("False".into()) }),
@@ -164,7 +166,7 @@ pub mod atom {
     }
 
     #[inline]
-    pub fn eval_gt(ps: &[Object]) -> Result<Object, EvalError> {
+    pub fn eval_gt(ps: &[Object]) -> Result<Object> {
         use Object::*;
         match ps {
             [Integer(x), Integer(y)] => Ok(if x > y { Var("True".into()) } else { Var("False".into()) }),
@@ -173,7 +175,7 @@ pub mod atom {
     }
 
     #[inline]
-    pub fn eval_ge(ps: &[Object]) -> Result<Object, EvalError> {
+    pub fn eval_ge(ps: &[Object]) -> Result<Object> {
         use Object::*;
         match ps {
             [Integer(x), Integer(y)] => Ok(if x >= y { Var("True".into()) } else { Var("False".into()) }),

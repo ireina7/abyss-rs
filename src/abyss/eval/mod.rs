@@ -11,7 +11,7 @@ pub use self::core::*;
 
 impl Eval<Object> for Object {
     type Error = EvalError;
-    fn eval(&self, env: &Env) -> Result<Object, EvalError> {
+    fn eval(&self, env: &Env) -> std::result::Result<Object, EvalError> {
         let mut env = env.clone();
         lazy::evaluate(self, &mut env)
     }

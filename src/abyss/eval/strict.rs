@@ -17,7 +17,7 @@ use std::borrow::Borrow;
 
 
 
-fn eval_atom(expr: &Object, env: &mut Env) -> Result<Object, EvalError> {
+fn eval_atom(expr: &Object, env: &mut Env) -> Result<Object> {
     use Object::*;
     use atom::*;
     match expr {
@@ -48,7 +48,7 @@ fn eval_atom(expr: &Object, env: &mut Env) -> Result<Object, EvalError> {
 
 
 /// Evaluate arithmetic expressions.
-fn eval_if(cond: &Object, x: &Object, y: &Object, env: &mut Env) -> Result<Object, EvalError> {
+fn eval_if(cond: &Object, x: &Object, y: &Object, env: &mut Env) -> Result<Object> {
     use Object::*;
 
     let cond = evaluate(cond, env)?;
@@ -62,7 +62,7 @@ fn eval_if(cond: &Object, x: &Object, y: &Object, env: &mut Env) -> Result<Objec
 
 
 /// Evaluate case(match) expressions
-fn eval_cases(expr: &Object, cases: &[Object], env: &mut Env) -> Result<Object, EvalError> {
+fn eval_cases(expr: &Object, cases: &[Object], env: &mut Env) -> Result<Object> {
     //println!("\ncases");
     use Object::*;
     let expr = evaluate(expr, env)?;
@@ -93,7 +93,7 @@ fn eval_cases(expr: &Object, cases: &[Object], env: &mut Env) -> Result<Object, 
 
 
 /// Handle bindings
-fn bindings(bindings: &[Object], env: &mut Env) -> Result<(), EvalError> {
+fn bindings(bindings: &[Object], env: &mut Env) -> Result<()> {
     use Object::*;
     for binding in bindings {
         match binding {
@@ -121,7 +121,7 @@ fn bindings(bindings: &[Object], env: &mut Env) -> Result<(), EvalError> {
 /// Handle basic function application `(f x)`
 /// 
 /// `f` and `x` should have been evaluated!
-fn apply(f: Object, x: Object) -> Result<Object, EvalError> {
+fn apply(f: Object, x: Object) -> Result<Object> {
     use Object::*;
     
     match f {
@@ -176,14 +176,9 @@ fn apply(f: Object, x: Object) -> Result<Object, EvalError> {
     }
 }
 
-/// Check if variable is atom (normal form)
-fn is_atom(s: &str) -> bool {
-    let atoms = ["True", "False"];
-    atoms.iter().any(|&x| x == s)
-}
 
 /// Handle cons expression
-fn eval_cons(x: &Object, xs: &Object, env: &mut Env) -> Result<Object, EvalError> {
+fn eval_cons(x: &Object, xs: &Object, env: &mut Env) -> Result<Object> {
     let xs = evaluate(xs, env)?;
     match xs {
         //Object::Nil => Ok(Object::List(vec![evaluate(x, env)?])),
@@ -193,7 +188,7 @@ fn eval_cons(x: &Object, xs: &Object, env: &mut Env) -> Result<Object, EvalError
 }
 
 /// Handle list constructions
-fn eval_list(xs: &[Object], env: &mut Env) -> Result<Object, EvalError> {
+fn eval_list(xs: &[Object], env: &mut Env) -> Result<Object> {
     let mut v = vec![];
     for x in xs {
         let x = evaluate(x, env)?;
@@ -203,7 +198,7 @@ fn eval_list(xs: &[Object], env: &mut Env) -> Result<Object, EvalError> {
 }
 
 
-fn eval_head(xs: &Object, env: &mut Env) -> Result<Object, EvalError> {
+fn eval_head(xs: &Object, env: &mut Env) -> Result<Object> {
     match evaluate(xs, env)? {
         Object::List(xs) => match &xs[..] {
             [x, ..] => Ok(x.clone()),
@@ -213,7 +208,7 @@ fn eval_head(xs: &Object, env: &mut Env) -> Result<Object, EvalError> {
     }
 }
 
-fn eval_tail(xs: &Object, env: &mut Env) -> Result<Object, EvalError> {
+fn eval_tail(xs: &Object, env: &mut Env) -> Result<Object> {
     //println!("{:?}", xs);
     match evaluate(xs, env)? {
         Object::List(xs) => match &xs[..] {
@@ -225,7 +220,7 @@ fn eval_tail(xs: &Object, env: &mut Env) -> Result<Object, EvalError> {
 }
 
 
-fn eval_thunk(thunk: &Object) -> Result<Object, EvalError> {
+fn eval_thunk(thunk: &Object) -> Result<Object> {
     //println!("\nthunk: {:?}", thunk);
     use Object::*;
     match thunk.clone() {
@@ -248,7 +243,7 @@ fn eval_thunk(thunk: &Object) -> Result<Object, EvalError> {
 
 
 /// The main evaluate function to calculate all abyss expressions
-pub fn evaluate(expr: &Object, env: &mut Env) -> Result<Object, EvalError> {
+pub fn evaluate(expr: &Object, env: &mut Env) -> Result<Object> {
     use Object::*;
     //println!("\neval: {} in {:?}", expr, env);
     let ans = match expr {
