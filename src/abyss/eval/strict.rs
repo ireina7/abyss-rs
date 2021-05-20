@@ -17,32 +17,32 @@ use std::borrow::Borrow;
 
 
 
-/// Test if the arithmetic operator is valid
-fn is_arith(op: &str) -> bool {
-    ["+", "-", "*", "/"].iter().any(|&x| x == op)
-}
-
-
-/// Evaluate arithmetic expressions.
-fn eval_arith(expr: &Object, env: &mut Env) -> Result<Object, EvalError> {
+fn eval_atom(expr: &Object, env: &mut Env) -> Result<Object, EvalError> {
     use Object::*;
-    
-    let binary_integer: HashMap<&str, &fn(i64, i64) -> i64> = atom::BINARY_ARITH_INTEGER.iter().map(|(k, v)| (*k, v)).collect();
-    let binary_real: HashMap<&str, &fn(f64, f64) -> f64> = atom::BINARY_ARITH_REAL.iter().map(|(k, v)| (*k, v)).collect();
+    use atom::*;
     match expr {
+        Var(s) if ["True", "False"].iter().any(|&x| x == s) => Ok(expr.clone()),
         List(xs) => match &xs[..] {
-            [Var(op), x, y] if is_arith(&op) => {
-                let x = evaluate(x, env)?;
-                let y = evaluate(y, env)?;
-                match (x, y) {
-                    (Integer(x), Integer(y)) => Ok(Integer((binary_integer[&op[..]])(x, y))),
-                    (Real(x), Real(y)) => Ok(Real((binary_real[&op[..]])(x, y))),
-                    others => Err(EvalError { msg: format!("Arith error: evaluating {:?}", others) })
+            [] => Ok(List(vec![])),
+            [Var(op), xs @ .. ] => {
+                let mut ys = vec![];
+                for x in xs {
+                    ys.push(evaluate(x, env)?);
+                }
+                match &op[..] {
+                    "+" | "-" | "*" | "/" => eval_arith(op, &ys),
+                    "<"  => eval_lt(&ys),
+                    ">"  => eval_gt(&ys),
+                    "<=" => eval_le(&ys),
+                    ">=" => eval_ge(&ys),
+                    "==" => eval_eq(&ys),
+                    "/=" => eval_ne(&ys),
+                    unknown => Err(EvalError { msg: format!("Atom evaluation error: unknown atom operator: {:?}", unknown) })
                 }
             },
-            _ => Err(EvalError { msg: format!("eval arithmetic error!") })
+            _ => Err(EvalError { msg: format!("Atom evaluation error: evaluating {:?}", expr) })
         },
-        _ => Err(EvalError { msg: format!("eval arithmetic error!") })
+        _ => Err(EvalError { msg: format!("Atom evaluation error: evaluating {:?}", expr) })
     }
 }
 
@@ -251,32 +251,36 @@ fn eval_thunk(thunk: &Object) -> Result<Object, EvalError> {
 pub fn evaluate(expr: &Object, env: &mut Env) -> Result<Object, EvalError> {
     use Object::*;
     //println!("\neval: {} in {:?}", expr, env);
-    let expr = expr.clone();
     let ans = match expr {
         Nil         => Ok(Nil),
-        Var(s) if is_atom(&s) => Ok(Var(s)),
-        Var(s)      => env.get(&s).map(|x| (**x).clone()).ok_or(EvalError { msg: format!("No such variable: {}", s) }),
-        Symbol(_)   => Ok(expr),
-        Integer(_)  => Ok(expr),
-        Real(_)     => Ok(expr),
-        Str(_)      => Ok(expr),
+        Var(s) if atom::is_atom(&s) => Ok(expr.clone()),
+        Var(s)      => env.get(s).map(|x| (**x).clone()).ok_or(EvalError { msg: format!("No such variable: {}", s) }),
+        Symbol(_)   => Ok(expr.clone()),
+        Integer(_)  => Ok(expr.clone()),
+        Real(_)     => Ok(expr.clone()),
+        Str(_)      => Ok(expr.clone()),
         Thunk(_, _, _) => eval_thunk(&expr),
         List(ref xs)    => match &xs[..] {
             // Empty list
             [] => Ok(List(xs.clone())),
+
+            // Basic atom evaluation (should use strict evaluation)
+            [Var(op), ..] if atom::is_atom_op(&op) => eval_atom(expr, env),
 
             // Lambda abstraction
             [Var(op), ps, expr] if &op[..] == "lambda" => {
                 Ok(Object::closure(ps.clone(), expr.clone(), env.clone()))
             },
 
-            // Force evaluation
+            // Delay evaluation
             [Var(op), x] if &op[..] == "lazy" => {
                 wrap(None, x.clone(), env.clone())
             }
-            
-            // Basic arithmetic
-            [Var(op), _, _] if is_arith(&op) => eval_arith(&expr, env),
+
+            // Force evaluation
+            [Var(op), x] if &op[..] == "!" => {
+                evaluate(x, env)
+            }
 
             // If expressions
             [Var(op), cond, x, y] if &op[..] == "if" => eval_if(cond, x, y, env),
@@ -284,7 +288,6 @@ pub fn evaluate(expr: &Object, env: &mut Env) -> Result<Object, EvalError> {
             // Let bindings
             [Var(op), List(bs), expr] if &op[..] == "let" => {
                 bindings(bs, env)?;
-                //println!("{:?}", env);
                 evaluate(expr, env)
             },
 
@@ -319,7 +322,31 @@ pub fn evaluate(expr: &Object, env: &mut Env) -> Result<Object, EvalError> {
 
 
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use Object::*;
 
+    #[test]
+    fn simple_recursive() {
+        let mut env = env();
+        let src = String::from("(let ((gen (lambda (s n) (case n ((0 ()) (n (cons s (gen s (- n 1))))))))) (gen 'T_T 3))");
+        if let Ok(ast) = src.parse::<Object>() {
+            let res = evaluate(&ast, &mut env);
+            assert_eq!(res.ok(), Some(List(vec![Symbol("T_T".into()), Symbol("T_T".into()), Symbol("T_T".into())])));
+        }
+    }
+
+    #[test]
+    fn complex_recursive() {
+        let mut env = env();
+        let src = String::from("(let ((fact (lambda (n) (case n ((0 1) (n (+ n (fact (- n 1))))))))) (fact 10))");
+        if let Ok(ast) = src.parse::<Object>() {
+            let res = evaluate(&ast, &mut env);
+            assert_eq!(res.ok(), Some(Integer(56)));
+        }
+    }
+}
 
 
 

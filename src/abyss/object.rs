@@ -144,8 +144,10 @@ impl fmt::Display for Object {
             Real(n)    => write!(f, "{}", n),
             Str(s)     => write!(f, "\"{}\"", s),
             List(xs)   => write!(f, "{}", format!("{}{}{}", "(", &xs.iter().map(|o| format!("{}", o)).collect::<Vec<_>>().join(" "), ")")),
-            Closure(name, _, _, _) => write!(f, "[closure: {:?}]", name),
-            Thunk(name, _, _) => write!(f, "[thunk: {:?}]", name),
+            Closure(name, _, _, _) => 
+                write!(f, "[closure{}{}]", if let Some(_) = name {": "} else {""}, name.as_ref().unwrap_or(&"".to_string())),
+            Thunk(name, _, _) => 
+                write!(f, "[thunk{}{}]",   if let Some(_) = name {": "} else {""}, name.as_ref().unwrap_or(&"".to_string())),
             Custom(o)  => write!(f, "{}", o),
         }
     }

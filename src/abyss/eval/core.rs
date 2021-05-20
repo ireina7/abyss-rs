@@ -23,10 +23,17 @@ pub fn env() -> Env {
         ("fix", "(lambda (f) ((lambda (x) (f (lambda (v) (x x v)))) (lambda (x) (f (lambda (v) (x x v))))))"),
         //("fix", "(lambda (f) ((lambda (x) (f (x x))) (lambda (x) (f (x x)))))"),
         ("lazy", "(lambda (x) (lazy x))"),
+        ("!", "(lambda (x) (! x))"),
         ("+", "(lambda (x y) (+ x y))"),
         ("-", "(lambda (x y) (- x y))"),
         ("*", "(lambda (x y) (* x y))"),
         ("/", "(lambda (x y) (/ x y))"),
+        ("<", "(lambda (x y) (< x y))"),
+        (">", "(lambda (x y) (> x y))"),
+        ("==", "(lambda (x y) (== x y))"),
+        ("/=", "(lambda (x y) (/= x y))"),
+        ("<=", "(lambda (x y) (<= x y))"),
+        (">=", "(lambda (x y) (>= x y))"),
         ("cons", "(lambda (x xs) (cons x xs))"),
         ("head", "(lambda (xs) (head xs))"),
         ("tail", "(lambda (xs) (tail xs))"),
@@ -53,6 +60,10 @@ pub fn wrap(name: Option<String>, expr: Object, env: Env) -> Result<Object, Eval
 
 
 pub mod atom {
+
+    use super::*;
+    use std::collections::HashMap;
+
     fn add_i(a: i64, b: i64) -> i64 { a + b }
     fn sub_i(a: i64, b: i64) -> i64 { a - b }
     fn mul_i(a: i64, b: i64) -> i64 { a * b }
@@ -76,4 +87,97 @@ pub mod atom {
         ("*", mul_f),
         ("/", div_f),
     ];
+
+    /// Test if the arithmetic operator is valid
+    #[inline]
+    pub fn is_arith(op: &str) -> bool {
+        ["+", "-", "*", "/"].iter().any(|&x| x == op)
+    }
+
+    #[inline]
+    pub fn is_atom_op(op: &str) -> bool {
+        is_arith(op) || ["==", "/=", "<", "<=", ">", ">="].iter().any(|&x| x == op)
+    }
+
+    /// Check if variable is atom (normal form)
+    #[inline]
+    pub fn is_atom(s: &str) -> bool {
+        let atoms = ["True", "False"];
+        atoms.iter().any(|&x| x == s)
+    }
+
+
+    /// Evaluate arithmetic expressions.
+    pub fn eval_arith(op: &str, ps: &[Object]) -> Result<Object, EvalError> {
+        use Object::*;
+
+        let binary_integer: HashMap<&str, &fn(i64, i64) -> i64> = 
+            atom::BINARY_ARITH_INTEGER.iter().map(|(k, v)| (*k, v)).collect();
+        let binary_real: HashMap<&str, &fn(f64, f64) -> f64> = 
+            atom::BINARY_ARITH_REAL.iter().map(|(k, v)| (*k, v)).collect();
+        
+        match ps {
+            [Integer(x), Integer(y)] => Ok(Integer((binary_integer[op])(*x, *y))),
+            [Real(x), Real(y)] => Ok(Real((binary_real[op])(*x, *y))),
+            others => Err(EvalError { msg: format!("Arith error: evaluating {:?}", others) })
+        }
+    }
+
+    /// Evaluate atom eq
+    #[inline]
+    pub fn eval_eq(ps: &[Object]) -> Result<Object, EvalError> {
+        use Object::*;
+        match ps {
+            [x, y] => Ok(if x == y { Var("True".into()) } else { Var("False".into()) }),
+            _ => Err(EvalError { msg: format!("eval_eq error: {:?}", ps) })
+        }
+        
+    }
+
+    /// Evaluate atom ne
+    #[inline]
+    pub fn eval_ne(ps: &[Object]) -> Result<Object, EvalError> {
+        use Object::*;
+        match ps {
+            [x, y] => Ok(if x != y { Var("True".into()) } else { Var("False".into()) }),
+            _ => Err(EvalError { msg: format!("eval_ne error: {:?}", ps) })
+        }
+        
+    }
+
+    #[inline]
+    pub fn eval_lt(ps: &[Object]) -> Result<Object, EvalError> {
+        use Object::*;
+        match ps {
+            [Integer(x), Integer(y)] => Ok(if x < y { Var("True".into()) } else { Var("False".into()) }),
+            _ => Err(EvalError { msg: format!("eval_lt error: {:?}", ps) })
+        }
+    }
+
+    #[inline]
+    pub fn eval_le(ps: &[Object]) -> Result<Object, EvalError> {
+        use Object::*;
+        match ps {
+            [Integer(x), Integer(y)] => Ok(if x <= y { Var("True".into()) } else { Var("False".into()) }),
+            _ => Err(EvalError { msg: format!("eval_le error: {:?}", ps) })
+        }
+    }
+
+    #[inline]
+    pub fn eval_gt(ps: &[Object]) -> Result<Object, EvalError> {
+        use Object::*;
+        match ps {
+            [Integer(x), Integer(y)] => Ok(if x > y { Var("True".into()) } else { Var("False".into()) }),
+            _ => Err(EvalError { msg: format!("eval_gt error: {:?}", ps) })
+        }
+    }
+
+    #[inline]
+    pub fn eval_ge(ps: &[Object]) -> Result<Object, EvalError> {
+        use Object::*;
+        match ps {
+            [Integer(x), Integer(y)] => Ok(if x >= y { Var("True".into()) } else { Var("False".into()) }),
+            _ => Err(EvalError { msg: format!("eval_ge error: {:?}", ps) })
+        }
+    }
 }

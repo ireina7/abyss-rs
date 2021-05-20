@@ -146,6 +146,9 @@ mod tests {
         let rhs = List(vec![Var("b".into()), Integer(7), Str("test_str".into())]);
         let res = lhs.unify(&rhs);
 
-        assert_eq!(res.ok(), None);
+        let mut ans = HashMap::new();
+        ans.insert("a".to_string(), Integer(7));
+        ans.insert("b".to_string(), Integer(7));
+        assert_eq!(res.ok(), Some(ans));
     }
 }
