@@ -2,7 +2,7 @@ use std::fmt;
 use crate::abyss;
 use abyss::object::{Object, Env, EvalError};
 use std::rc::Rc;
-use std::ops::Deref;
+
 
 
 pub type Result<T> = std::result::Result<T, EvalError>;
@@ -68,41 +68,6 @@ pub fn weak(ps: Vec<Object>, expr: Object) -> Object {
 }
 
 
-#[derive(Debug, PartialEq, Eq)]
-struct Pattern {
-    expr: Object
-}
-
-impl From<Object> for Pattern {
-    fn from(obj: Object) -> Self {
-        use Object::*;
-        fn pack(obj: Object) -> Pattern {
-            Pattern { expr: obj }
-        }
-        match obj {
-            Nil            => pack(Nil),
-            Var(_)         => pack(obj),
-            Symbol(_)      => pack(obj),
-            Cons(_)        => pack(obj),
-            Integer(_)     => pack(obj),
-            Real(_)        => pack(obj),
-            Str(_)         => pack(obj),
-            Thunk(_, _, _) => pack(obj),
-            List(xs) => match &xs[..] {
-                [Var(_op), _xs @ ..] => todo!(),
-                _ => todo!()
-            }
-            _ => todo!()
-        }
-    }
-}
-
-impl Deref for Pattern {
-    type Target = Object;
-    fn deref(&self) -> &Self::Target {
-        &self.expr
-    }
-}
 
 
 
@@ -234,3 +199,5 @@ pub mod atom {
         }
     }
 }
+
+

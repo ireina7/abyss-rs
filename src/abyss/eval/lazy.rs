@@ -43,6 +43,7 @@ fn eval_atom(expr: &Object, env: &mut Env) -> Result<Object> {
 }
 
 /// Evaluate arithmetic expressions.
+#[inline]
 fn eval_if(cond: &Object, x: &Object, y: &Object, env: &mut Env) -> Result<Object> {
     use Object::*;
 
@@ -55,6 +56,17 @@ fn eval_if(cond: &Object, x: &Object, y: &Object, env: &mut Env) -> Result<Objec
 }
 
 
+#[inline]
+fn eval_case(expr: &Object, pat: &Object, res: &Object, env: &mut Env) -> Option<Result<Object>> {
+    let bind = pat.unify(expr);
+    if let Ok(mut bind) = bind {
+        let bind: HashMap<String, Rc<Object>> = bind.iter_mut().map(|(k, v)| (k.clone(), Rc::new(v.clone()))).collect();
+        env.extend(bind);
+        Some(evaluate(res, env))
+    } else {
+        None
+    }
+}
 
 /// Evaluate case(match) expressions
 fn eval_cases(expr: &Object, cases: &[Object], env: &mut Env) -> Result<Object> {
@@ -65,13 +77,9 @@ fn eval_cases(expr: &Object, cases: &[Object], env: &mut Env) -> Result<Object> 
         match case {
             List(xs) => match &xs[..] {
                 [pat, res] => {
-                    let bind = pat.unify(&expr);
-                    if let Ok(mut bind) = bind {
-                        let bind: HashMap<String, Rc<Object>> = bind.iter_mut().map(|(k, v)| (k.clone(), Rc::new(v.clone()))).collect();
-                        env.extend(bind);
-                        return evaluate(res, env)
-                    } else {
-                        continue;
+                    match eval_case(&expr, pat, res, env) {
+                        None => continue,
+                        Some(res) => return res,
                     }
                 },
                 _ => return Err(EvalError {
@@ -210,8 +218,10 @@ fn apply(f: Object, x: Object) -> Result<Object> {
 fn eval_cons(x: &Object, xs: &Object, env: &mut Env) -> Result<Object> {
     let xs = evaluate(xs, env)?;
     match xs {
-        //Object::Nil => Ok(Object::List(vec![evaluate(x, env)?])),
-        Object::List(xs) => Ok(Object::List(vec![wrap(None, x.clone(), env.clone())?].into_iter().chain(xs.into_iter()).collect())),
+        Object::List(xs) => {
+            let x = wrap(None, x.clone(), env.clone())?;
+            Ok(Object::List(vec![x].into_iter().chain(xs.into_iter()).collect()))
+        },
         _ => Err(EvalError {msg: format!("Cons error: {:?}", xs)})
     }
 }
@@ -249,7 +259,8 @@ fn eval_tail(xs: &Object, env: &mut Env) -> Result<Object> {
 }
 
 /// Thunk evaluation
-fn eval_thunk(thunk: &Object) -> Result<Object> {
+#[inline]
+pub fn eval_thunk(thunk: &Object) -> Result<Object> {
     //println!("\nthunk: {:?}", thunk);
     use Object::*;
     match thunk.clone() {
@@ -266,7 +277,8 @@ fn eval_thunk(thunk: &Object) -> Result<Object> {
 }
 
 /// Force strict evaluation
-fn force(obj: &Object, env: &mut Env) -> Result<Object> {
+#[inline]
+pub fn force(obj: &Object, env: &mut Env) -> Result<Object> {
     //println!("\nforce: {} in {:?}", thunk, env);
     use Object::*;
     let obj = evaluate(obj, env)?;
@@ -297,7 +309,7 @@ pub fn evaluate(expr: &Object, env: &mut Env) -> Result<Object> {
             [] => Ok(expr.clone()),
 
             // Basic atom evaluation (should use strict evaluation)
-            [Var(op), ..] if atom::is_atom_op(&op) => eval_atom(expr, env),
+            [Var(op), _, _] if atom::is_atom_op(&op) => eval_atom(expr, env),
 
             // Lambda abstraction
             [Var(op), ps, expr] if &op[..] == "lambda" => {

@@ -60,6 +60,17 @@ fn eval_if(cond: &Object, x: &Object, y: &Object, env: &mut Env) -> Result<Objec
 }
 
 
+#[inline]
+fn eval_case(expr: &Object, pat: &Object, res: &Object, env: &mut Env) -> Option<Result<Object>> {
+    let bind = pat.unify(expr);
+    if let Ok(mut bind) = bind {
+        let bind: HashMap<String, Rc<Object>> = bind.iter_mut().map(|(k, v)| (k.clone(), Rc::new(v.clone()))).collect();
+        env.extend(bind);
+        Some(evaluate(res, env))
+    } else {
+        None
+    }
+}
 
 /// Evaluate case(match) expressions
 fn eval_cases(expr: &Object, cases: &[Object], env: &mut Env) -> Result<Object> {
@@ -70,13 +81,9 @@ fn eval_cases(expr: &Object, cases: &[Object], env: &mut Env) -> Result<Object> 
         match case {
             List(xs) => match &xs[..] {
                 [pat, res] => {
-                    let bind = pat.unify(&expr);
-                    if let Ok(mut bind) = bind {
-                        let bind: HashMap<String, Rc<Object>> = bind.iter_mut().map(|(k, v)| (k.clone(), Rc::new(v.clone()))).collect();
-                        env.extend(bind);
-                        return evaluate(res, env)
-                    } else {
-                        continue;
+                    match eval_case(&expr, pat, res, env) {
+                        None => continue,
+                        Some(res) => return res,
                     }
                 },
                 _ => return Err(EvalError {
@@ -281,7 +288,7 @@ pub fn evaluate(expr: &Object, env: &mut Env) -> Result<Object> {
             [] => Ok(List(xs.clone())),
 
             // Basic atom evaluation (should use strict evaluation)
-            [Var(op), ..] if atom::is_atom_op(&op) => eval_atom(expr, env),
+            [Var(op), _, _] if atom::is_atom_op(&op) => eval_atom(expr, env),
 
             // Lambda abstraction
             [Var(op), ps, expr] if &op[..] == "lambda" => {

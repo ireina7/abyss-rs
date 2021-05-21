@@ -3,7 +3,7 @@ use super::object::Object;
 use crate::parser::*;
 use crate::parser::combinators::*;
 use std::str::{ FromStr };
-
+use std::ops::Deref;
 
 
 impl FromStr for Object {
@@ -71,6 +71,86 @@ fn atom() -> Wrapper<impl Parser<Output=Object> + Clone> {
 
 
 
+#[derive(Debug, PartialEq, Eq)]
+pub struct Pattern {
+    expr: Object
+}
+
+impl Pattern {
+    pub fn unwrap(self) -> Object {
+        self.expr
+    }
+}
+
+
+impl From<Object> for Pattern {
+    fn from(obj: Object) -> Self {
+        use Object::*;
+        fn pack(obj: Object) -> Pattern {
+            Pattern { expr: obj }
+        }
+        match obj {
+            Nil            => pack(Nil),
+            Var(_)         => pack(obj),
+            Symbol(_)      => pack(obj),
+            Cons(_)        => pack(obj),
+            Integer(_)     => pack(obj),
+            Real(_)        => pack(obj),
+            Str(_)         => pack(obj),
+            Thunk(_, _, _) => pack(obj),
+            List(xs) => match &xs[..] {
+                // Only when an var occurs on the head of a list should it be converted into a Cons object.
+                [Var(op), xs @ ..] => {
+                    let xs = xs.iter().map(|x| Pattern::from(x.clone()).unwrap());
+                    let list = vec![Cons(op.clone())].into_iter().chain(xs.into_iter()).collect();
+                    pack(List(list))
+                },
+                xs => pack(List(xs.iter().map(|x| Pattern::from(x.clone()).unwrap()).collect()))
+            },
+            _ => pack(obj)
+        }
+    }
+}
+
+impl Deref for Pattern {
+    type Target = Object;
+    fn deref(&self) -> &Self::Target {
+        &self.expr
+    }
+}
+
+
+
+fn convert_pattern(expr: Object) -> Object {
+    use Object::*;
+    match expr {
+        List(xs) => match &xs[..] {
+            [Var(op), expr, List(cases)] if &op[..] == "case" => {
+                let cases = List(cases.iter().map(|case| match case {
+                    List(xs) => match &xs[..] {
+                        [pat, result] => {
+                            let pat = Pattern::from(pat.clone()).unwrap();
+                            List(vec![pat, result.clone()])
+                        },
+                        others => List(others.to_vec())
+                    },
+                    others => others.clone()
+                }).collect());
+                List(vec![Var(op.clone()), expr.clone(), cases])
+            },
+            _ => List(xs)
+        },
+        others => others
+    }
+}
+
+fn conversions(expr: Object) -> Object {
+    let ans = convert_pattern(expr);
+    ans
+}
+
+
+
 
 /**
   * The main parser function
@@ -92,7 +172,8 @@ fn parse_to_object(src: &str) -> Result<Object, ParseError> {
         pure(Object::List(xs.clone()))
     ));
 
-    parser.parse(&mut src)
+    let ans = parser.parse(&mut src)?;
+    Ok(conversions(ans))
 }
 
 
@@ -129,5 +210,23 @@ mod tests {
         let mut src = ParseState::new("\"str\"");
         let parser = string();
         assert_eq!(parser.parse(&mut src).ok(), Some(Object::Str("str".into())));
+    }
+
+    #[test]
+    fn test_pattern_conversion() {
+        use Object::*;
+        let pat_raw = String::from("(cons x (cons y rest))").parse::<Object>().unwrap();
+        let pat = Pattern::from(pat_raw).unwrap();
+
+        let label = List(vec![
+            Cons("cons".into()), 
+            Var("x".into()), 
+            List(vec![
+                Cons("cons".into()),
+                Var("y".into()), 
+                Var("rest".into())
+            ])
+        ]);
+        assert_eq!(pat, label);
     }
 }
