@@ -318,7 +318,7 @@ pub fn evaluate(expr: &Object, env: &mut Env) -> Result<Object> {
             [Var(op), expr, List(cases)] if &op[..] == "case" => eval_cases(expr, cases, env),
 
             // List operations
-            [Var(op), x, xs]   if &op[..] == "cons" => eval_cons(x, xs, env),
+            [Var(op), x, xs]   if &op[..] == "::" => eval_cons(x, xs, env),
             [Var(op), xs @ ..] if &op[..] == "list" => eval_list(xs, env),
             /*
             [Var(op), xs]      if &op[..] == "head" => eval_head(xs, env),
@@ -358,7 +358,7 @@ mod tests {
     #[test]
     fn simple_recursive() {
         let mut env = env();
-        let src = String::from("(let ((gen (lambda (s n) (case n ((0 ()) (n (cons s (gen s (- n 1))))))))) (gen 'T_T 3))");
+        let src = String::from("(let ((gen (lambda (s n) (case n ((0 ()) (n (:: s (gen s (- n 1))))))))) (gen 'T_T 3))");
         if let Ok(ast) = src.parse::<Object>() {
             let res = evaluate(&ast, &mut env);
             assert_eq!(res.ok(), Some(List(vec![Symbol("T_T".into()), Symbol("T_T".into()), Symbol("T_T".into())])));

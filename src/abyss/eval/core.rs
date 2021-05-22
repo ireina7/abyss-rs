@@ -37,9 +37,9 @@ pub fn env() -> Env {
         ("/=", "(lambda (x y) (/= x y))"),
         ("<=", "(lambda (x y) (<= x y))"),
         (">=", "(lambda (x y) (>= x y))"),
-        ("cons", "(lambda (x xs) (cons x xs))"),
-        ("head", "(lambda (xs) (head xs))"),
-        ("tail", "(lambda (xs) (tail xs))"),
+        ("::", "(lambda (x xs) (:: x xs))"),
+        //("head", "(lambda (xs) (head xs))"),
+        //("tail", "(lambda (xs) (tail xs))"),
     ];
     Env::new_from(env.into_iter().map(|(str, src)| (str.to_string(), f(src))).collect())
 }

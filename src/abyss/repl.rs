@@ -33,7 +33,8 @@ pub fn repl() -> io::Result<()> {
     let stdin = io::stdin();
     //let mut input = String::new();
     let mut env = eval::env();
-    prompt("abyss");
+    let label = "abyss";
+    prompt(label);
     for line in stdin.lock().lines() {
 
         let line = line?;
@@ -41,12 +42,12 @@ pub fn repl() -> io::Result<()> {
             break;
         }
         if line == "" {
-            prompt("abyss");
+            prompt(label);
             continue;
         }
         if line == "help" {
             println!("The Abyss programming language developed by Ireina.\n");
-            prompt("abyss");
+            prompt(label);
             continue;
         }
         let ast = line.parse::<Object>();
@@ -63,7 +64,7 @@ pub fn repl() -> io::Result<()> {
             });
         
         println!("{}\n", result(res));
-        prompt("abyss");
+        prompt(label);
     }
     bye();
     Ok(())

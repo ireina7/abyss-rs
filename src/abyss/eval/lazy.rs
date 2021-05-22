@@ -73,7 +73,7 @@ fn eval_case(expr: &Object, pat: &Object, res: &Object, env: &mut Env) -> Option
 fn eval_cases(expr: &Object, cases: &[Object], env: &mut Env) -> Result<Object> {
     //println!("\ncases");
     use Object::*;
-    let expr = force(expr, env)?;
+    let expr = evaluate(expr, env)?;
     for case in cases {
         match case {
             List(xs) => match &xs[..] {
@@ -217,14 +217,11 @@ fn apply(f: Object, x: Object) -> Result<Object> {
 
 /// Handle cons expression
 fn eval_cons(x: &Object, xs: &Object, env: &mut Env) -> Result<Object> {
-    let xs = evaluate(xs, env)?;
-    match xs {
-        Object::List(xs) => {
-            let x = wrap(None, x.clone(), env.clone())?;
-            Ok(Object::List(vec![x].into_iter().chain(xs.into_iter()).collect()))
-        },
-        _ => Err(EvalError {msg: format!("Cons error: {:?}", xs)})
-    }
+    use Object::*;
+    //let xs = evaluate(xs, env)?;
+    let xs = wrap(None, xs.clone(), env.clone())?;
+    let x  = wrap(None, x .clone(), env.clone())?;
+    Ok(Object::List(vec![Cons("::".into()), x, xs]))
 }
 
 /// Handle list constructions
@@ -360,7 +357,7 @@ pub fn evaluate(expr: &Object, env: &mut Env) -> Result<Object> {
             [Var(op), expr, List(cases)] if &op[..] == "case" => eval_cases(expr, cases, env),
 
             // List operations
-            [Var(op), x, xs]   if &op[..] == "cons" => eval_cons(x, xs, env),
+            [Var(op), x, xs]   if &op[..] == "::"   => eval_cons(x, xs, env),
             [Var(op), xs @ ..] if &op[..] == "list" => eval_list(xs, env),
             /*
             [Var(op), xs]      if &op[..] == "head" => eval_head(xs, env),
@@ -403,7 +400,7 @@ mod tests {
     #[test]
     fn simple_recursive() {
         let mut env = env();
-        let src = String::from("(let ((gen (lambda (s n) (case n ((0 ()) (n (cons s (gen s (- n 1))))))))) (gen 'T_T 3))");
+        let src = String::from("(let ((gen (lambda (s n) (case n ((0 ()) (n (:: s (gen s (- n 1))))))))) (gen 'T_T 3))");
         if let Ok(ast) = src.parse::<Object>() {
             let res = evaluate(&ast, &mut env);
             assert_eq!(res.ok(), Some(List(vec![Symbol("T_T".into()), Symbol("T_T".into()), Symbol("T_T".into())])));
