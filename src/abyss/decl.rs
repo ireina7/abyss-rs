@@ -1,1 +1,0 @@
-//! Declaration of Abyss language

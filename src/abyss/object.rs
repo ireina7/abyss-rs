@@ -130,8 +130,8 @@ impl fmt::Debug for Object {
             Real(n)    => write!(f, "Real({})", n),
             Str(s)     => write!(f, "Str({})", s),
             List(xs)   => write!(f, "{}", format!("{}{}{}", "(", &xs.iter().map(|o| format!("{:?}", o)).collect::<Vec<_>>().join(" "), ")")),
-            Closure(name, ps, expr, _) => write!(f, "[closure: {:?}{} => {}]", name, ps, expr),
-            Thunk(name, x, _env) => write!(f, "Thunk: {:?}({:?})", name, x),
+            Closure(name, ps, expr, _) => write!(f, "<closure: {:?}{} => {}>", name, ps, expr),
+            Thunk(name, x, _env) => write!(f, "<Thunk: {:?}({:?})>", name, x),
             Custom(o)  => write!(f, "{}", o)
         }
     }
@@ -150,9 +150,9 @@ impl fmt::Display for Object {
             Str(s)     => write!(f, "\"{}\"", s),
             List(xs)   => write!(f, "{}", format!("{}{}{}", "(", &xs.iter().map(|o| format!("{}", o)).collect::<Vec<_>>().join(" "), ")")),
             Closure(name, _, _, _) => 
-                write!(f, "[closure{}{}]", if let Some(_) = name {": "} else {""}, name.as_ref().unwrap_or(&"".to_string())),
+                write!(f, "<closure{}{}>", if let Some(_) = name {": "} else {""}, name.as_ref().unwrap_or(&"".to_string())),
             Thunk(name, _, _) => 
-                write!(f, "[thunk{}{}]",   if let Some(_) = name {": "} else {""}, name.as_ref().unwrap_or(&"".to_string())),
+                write!(f, "<thunk{}{}>",   if let Some(_) = name {": "} else {""}, name.as_ref().unwrap_or(&"".to_string())),
             Custom(o)  => write!(f, "{}", o),
         }
     }

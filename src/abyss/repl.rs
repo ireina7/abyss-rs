@@ -32,7 +32,7 @@ fn result<V, E>(res: Result<V, E>) -> String
 pub fn repl() -> io::Result<()> {
     let stdin = io::stdin();
     //let mut input = String::new();
-    let env = eval::env();
+    let mut env = eval::env();
     prompt("abyss");
     for line in stdin.lock().lines() {
 
@@ -53,7 +53,14 @@ pub fn repl() -> io::Result<()> {
         //println!("{:?} =>", ast);
         let res: Result<Object, _> = ast
             .map_err(|crate::parser::ParseError {msg, ..}| super::eval::EvalError { msg })
-            .and_then(|src| src.eval(&env));
+            .and_then(|src| {
+                if eval::decl::is_decl(&src) { 
+                    eval::decl::eval_decl(&src, &mut env).unwrap();
+                    Ok(Object::Nil)
+                } else { 
+                    src.eval(&env) 
+                }
+            });
         
         println!("{}\n", result(res));
         prompt("abyss");

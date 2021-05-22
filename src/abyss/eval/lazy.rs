@@ -96,7 +96,7 @@ fn eval_cases(expr: &Object, cases: &[Object], env: &mut Env) -> Result<Object> 
 
 
 
-fn bind(left: &Object, right: &Object, env: &mut Env) -> Result<()> {
+pub fn bind(left: &Object, right: &Object, env: &mut Env) -> Result<()> {
     use Object::*;
     match (left, right) {
         (Var(s), expr) => {
@@ -397,3 +397,5 @@ mod tests {
         }
     }
 }
+
+

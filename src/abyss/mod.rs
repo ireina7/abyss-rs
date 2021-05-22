@@ -3,7 +3,6 @@ pub mod config;
 pub mod object;
 pub mod parser;
 pub mod eval;
-pub mod decl;
 pub mod logic;
 pub mod checker;
 pub mod env;
