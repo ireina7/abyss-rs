@@ -138,7 +138,7 @@ fn convert_pattern(expr: Object) -> Object {
                 }).collect());
                 List(vec![Var(op.clone()), expr.clone(), cases])
             },
-            _ => List(xs)
+            _ => List(xs.into_iter().map(|x| convert_pattern(x)).collect())
         },
         others => others
     }

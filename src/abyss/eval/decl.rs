@@ -1,6 +1,6 @@
 //! Declaration of Abyss language
 
-use super::{Object, Result, Env, bind};
+use super::{ Object, Result, Env, bind, EvalError };
 //use std::rc::Rc;
 
 
@@ -9,6 +9,7 @@ pub fn is_decl(obj: &Object) -> bool {
     match obj {
         List(xs) => match &xs[..] {
             [Var(op), _, _] if op == "define" => true,
+            [Var(op), _, _] if op == "data" => todo!(),
             _ => false
         }
         _ => false
@@ -19,10 +20,10 @@ pub fn eval_decl(decl: &Object, env: &mut Env) -> Result<()> {
     use Object::*;
     match decl {
         List(xs) => match &xs[..] {
-            [Var(op), def, expr] if op == "define" => bind(def, expr, env)?,
-            _ => todo!()
+            [Var(op), def, expr] if op == "define" => bind(def, expr, env),
+            [Var(op), _, _] if op == "data" => todo!(),
+            _ => Err(EvalError { msg: format!("Evaluation error: wrong format of declarations: {:?}", decl) })
         }
-        _ => todo!()
+        _ => Err(EvalError { msg: format!("Evaluation error: wrong format of declarations: {:?}", decl) })
     }
-    Ok(())
 }

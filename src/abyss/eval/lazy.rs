@@ -64,6 +64,7 @@ fn eval_case(expr: &Object, pat: &Object, res: &Object, env: &mut Env) -> Option
         env.extend(bind);
         Some(evaluate(res, env))
     } else {
+        //println!("{:?}", bind);
         None
     }
 }
@@ -236,10 +237,11 @@ fn eval_list(xs: &[Object], env: &mut Env) -> Result<Object> {
     Ok(Object::List(v))
 }
 
-
+/*
 fn eval_head(xs: &Object, env: &mut Env) -> Result<Object> {
+    use Object::*;
     match force(xs, env)? {
-        Object::List(xs) => match &xs[..] {
+        List(xs) => match &xs[..] {
             [x, ..] => Ok(x.clone()),
             _ => Err(EvalError { msg: format!("Eval error: Can not get head of an empty list.") })
         },
@@ -249,14 +251,16 @@ fn eval_head(xs: &Object, env: &mut Env) -> Result<Object> {
 
 fn eval_tail(xs: &Object, env: &mut Env) -> Result<Object> {
     //println!("{:?}", xs);
+    use Object::*;
     match force(xs, env)? {
-        Object::List(xs) => match &xs[..] {
+        List(xs) => match &xs[..] {
             [_, xs @ ..] => Ok(Object::List(xs.to_vec())),
             _ => Err(EvalError { msg: format!("Eval error: Can not get tail of an empty list.") })
         },
         others => Err(EvalError { msg: format!("Eval error: Can not get tail from {:?}", others) })
     }
 }
+*/
 
 /// Thunk evaluation
 #[inline]
@@ -288,13 +292,30 @@ pub fn force(obj: &Object, env: &mut Env) -> Result<Object> {
     }
 }
 
+#[inline]
+pub fn force_value(obj: &Object, env: &mut Env) -> Result<Object> {
+    use Object::*;
+    match obj {
+        Thunk(_, _, _) => force_value(&eval_thunk(&obj)?, env),
+        List(xs) => {
+            let mut ys = vec![];
+            for x in xs {
+                let x = force_value(&x, env)?;
+                ys.push(x);
+            }
+            Ok(List(ys))
+        }
+        others => Ok(others.clone())
+    }
+}
+
 
 
 
 /// The main evaluate function to calculate all abyss expressions
 pub fn evaluate(expr: &Object, env: &mut Env) -> Result<Object> {
     use Object::*;
-    //println!("\neval: {} in {:?}", expr, env);
+    //println!("\neval: {} in {:?}", expr, 0);
     let ans = match expr {
         Nil         => Ok(Nil),
         Var(s) if atom::is_atom(s) => Ok(expr.clone()),
@@ -323,7 +344,7 @@ pub fn evaluate(expr: &Object, env: &mut Env) -> Result<Object> {
 
             // Force evaluation
             [Var(op), x] if &op[..] == "!" => {
-                force(x, env)
+                force_value(&evaluate(x, env)?, env)
             }
             
             // If expressions
@@ -340,9 +361,11 @@ pub fn evaluate(expr: &Object, env: &mut Env) -> Result<Object> {
 
             // List operations
             [Var(op), x, xs]   if &op[..] == "cons" => eval_cons(x, xs, env),
+            [Var(op), xs @ ..] if &op[..] == "list" => eval_list(xs, env),
+            /*
             [Var(op), xs]      if &op[..] == "head" => eval_head(xs, env),
             [Var(op), xs]      if &op[..] == "tail" => eval_tail(xs, env),
-            [Var(op), xs @ ..] if &op[..] == "list" => eval_list(xs, env),
+            */
 
             // Weak head normal terms (Data constructors)
             [Cons(_), ..] => Ok(expr.clone()),

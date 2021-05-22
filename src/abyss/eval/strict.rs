@@ -99,7 +99,7 @@ fn eval_cases(expr: &Object, cases: &[Object], env: &mut Env) -> Result<Object> 
 }
 
 
-fn bind(left: &Object, right: &Object, env: &mut Env) -> Result<()> {
+pub fn bind(left: &Object, right: &Object, env: &mut Env) -> Result<()> {
     use Object::*;
     match (left, right) {
         (Var(s), expr) => {
@@ -225,7 +225,7 @@ fn eval_list(xs: &[Object], env: &mut Env) -> Result<Object> {
     Ok(Object::List(v))
 }
 
-
+/*
 fn eval_head(xs: &Object, env: &mut Env) -> Result<Object> {
     match evaluate(xs, env)? {
         Object::List(xs) => match &xs[..] {
@@ -246,7 +246,7 @@ fn eval_tail(xs: &Object, env: &mut Env) -> Result<Object> {
         others => Err(EvalError { msg: format!("Eval error: Can not get tail from {:?}", others) })
     }
 }
-
+*/
 
 fn eval_thunk(thunk: &Object) -> Result<Object> {
     //println!("\nthunk: {:?}", thunk);
@@ -319,9 +319,11 @@ pub fn evaluate(expr: &Object, env: &mut Env) -> Result<Object> {
 
             // List operations
             [Var(op), x, xs]   if &op[..] == "cons" => eval_cons(x, xs, env),
+            [Var(op), xs @ ..] if &op[..] == "list" => eval_list(xs, env),
+            /*
             [Var(op), xs]      if &op[..] == "head" => eval_head(xs, env),
             [Var(op), xs]      if &op[..] == "tail" => eval_tail(xs, env),
-            [Var(op), xs @ ..] if &op[..] == "list" => eval_list(xs, env),
+            */
 
             // Weak head normal terms (Data constructors)
             [Cons(_), ..] => Ok(expr.clone()),

@@ -44,7 +44,7 @@ pub fn env() -> Env {
     Env::new_from(env.into_iter().map(|(str, src)| (str.to_string(), f(src))).collect())
 }
 
-
+#[inline]
 pub fn wrap(name: Option<String>, expr: Object, env: Env) -> Result<Object> {
     use Object::*;
     match expr {
@@ -66,8 +66,6 @@ pub fn weak(ps: Vec<Object>, expr: Object) -> Object {
     use Object::*;
     List(vec![Var("lambda".into()), List(ps), expr])
 }
-
-
 
 
 
@@ -124,6 +122,7 @@ pub mod atom {
 
 
     /// Evaluate arithmetic expressions.
+    #[inline]
     pub fn eval_arith(op: &str, ps: &[Object]) -> Result<Object> {
         use Object::*;
 
