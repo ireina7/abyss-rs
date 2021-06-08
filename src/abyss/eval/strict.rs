@@ -145,59 +145,48 @@ fn bindings(bindings: &[Object], env: &mut Env) -> Result<()> {
 }
 
 
-//(let ((gen (lambda (s n) (case n ((0 ()) (n (cons s (gen s (- n 1))))))))) (gen 'T_T 200))
+//(let ((gen (lambda (s n) (case n ((0 ()) (n (:: s (gen s (- n 1))))))))) (gen 'T_T 200))
+#[inline]
+fn apply_env(f: Object, name: &Option<String>, pat: &Object, x: &Object, env: &mut Env) -> Result<()> {
+    let bind = pat.unify(&x);
+    if let Ok(bind) = bind {
+        let bind: HashMap<String, Rc<Object>> = bind.into_iter().map(|(k, v)| (k, Rc::new(v))).collect();
+        if let Some(name) = name {
+            env.insert(name.clone(), Rc::new(f));
+        }
+        env.extend(bind);
+        Ok(())
+    } else {
+        Err(EvalError { msg: format!("Application error: Unification error: unifying {:?} and {:?}", pat, x) })
+    }
+}
+
+
 /// Handle basic function application `(f x)`
 /// 
-/// `f` and `x` should have been evaluated!
+/// `f` and `x` should have been evaluated (lazy?)!
 fn apply(f: Object, x: Object) -> Result<Object> {
     use Object::*;
     
-    match f {
+    //let g = f.clone();
+    match &f {
         Closure(name, params, expr, env) => {
             // Unification should be invoked here, but we only allow single variable here to debug...
-            let mut env = env;
+            let mut env = env.clone();
             
             match params.borrow() {
                 List(ps) => match &ps[..] {
                     [ ] => evaluate(&*expr, &mut env),
                     [pat] => {
-                        let bind = pat.unify(&x);
-                        if let Ok(bind) = bind {
-                            let bind: HashMap<String, Rc<Object>> = bind.into_iter().map(|(k, v)| (k, Rc::new(v))).collect();
-                            if let Some(name) = name {
-                                env.insert(
-                                    name.clone(), 
-                                    Rc::new(Closure(Some(name), Rc::new(List(ps.to_vec())), expr.clone(), env.clone()))
-                                );
-                            }
-                            //println!("{:?}", ps);
-                            env.extend(bind);
-                            //println!("\napply: {:?}", env);
-                            evaluate(&*expr, &mut env)
-                        } else {
-                            Err(EvalError { msg: format!("Unification error") })
-                        }
+                        apply_env(f.clone(), name, pat, &x, &mut env)?;
+                        evaluate(&*expr, &mut env)
                     },
                     [pat, ss @ ..] => {
-                        let bind = pat.unify(&x);
-                        if let Ok(bind) = bind {
-                            let bind: HashMap<String, Rc<Object>> = bind.into_iter().map(|(k, v)| (k, Rc::new(v))).collect();
-                            if let Some(name) = name.clone() {
-                                env.insert(
-                                    name.clone(),
-                                    Rc::new(Closure(Some(name), Rc::new(List(ps.to_vec())), expr.clone(), env.clone()))
-                                );
-                            }
-                            
-                            env.extend(bind);
-                            //println!("\napply: {:?}", env);
-                            Ok(Closure(None, Rc::new(List(ss.to_vec())), expr, env))
-                        } else {
-                            Err(EvalError { msg: format!("Unification error") })
-                        }
+                        apply_env(f.clone(), name, pat, &x, &mut env)?;
+                        Ok(Closure(None, Rc::new(List(ss.to_vec())), expr.clone(), env.clone()))
                     }
                 },
-                _ => todo!()
+                others => Err(EvalError { msg: format!("Function parameters should be a list instead of {:?}", others) })
             }
         }
         _ => Err(EvalError { msg: format!("Function application error: {:?}", f) })
@@ -205,12 +194,13 @@ fn apply(f: Object, x: Object) -> Result<Object> {
 }
 
 
+
 /// Handle cons expression
 fn eval_cons(x: &Object, xs: &Object, env: &mut Env) -> Result<Object> {
+    use Object::*;
     let xs = evaluate(xs, env)?;
     match xs {
-        //Object::Nil => Ok(Object::List(vec![evaluate(x, env)?])),
-        Object::List(xs) => Ok(Object::List(vec![evaluate(x, env)?].into_iter().chain(xs.into_iter()).collect())),
+        List(xs) => Ok(List(vec![Cons("::".into()), evaluate(x, env)?, List(xs)])),
         _ => Err(EvalError {msg: format!("Cons error: {:?}", xs)})
     }
 }
@@ -254,11 +244,11 @@ fn eval_thunk(thunk: &Object) -> Result<Object> {
     match thunk.clone() {
         Thunk(None, expr, mut env) => {
             //println!("{:?}", env);
-            evaluate(&expr, &mut env)
+            evaluate(&expr.value(), &mut env)
         },
         Thunk(Some(name), expr, mut env) => {
             env.insert(name.clone(), Rc::new(thunk.clone()));
-            evaluate(&expr, &mut env)
+            evaluate(&expr.value(), &mut env)
         },
         _ => Err(EvalError { msg: format!("Error while evaluating thunk: {:?}", thunk) })
     }
@@ -361,7 +351,14 @@ mod tests {
         let src = String::from("(let ((gen (lambda (s n) (case n ((0 ()) (n (:: s (gen s (- n 1))))))))) (gen 'T_T 3))");
         if let Ok(ast) = src.parse::<Object>() {
             let res = evaluate(&ast, &mut env);
-            assert_eq!(res.ok(), Some(List(vec![Symbol("T_T".into()), Symbol("T_T".into()), Symbol("T_T".into())])));
+            //assert_eq!(res.ok(), Some(List(vec![Symbol("T_T".into()), Symbol("T_T".into()), Symbol("T_T".into())])));
+            assert_eq!(res.ok(), Some(List(vec![
+                Cons("::".into()), Symbol("T_T".into()), List(vec![
+                    Cons("::".into()), Symbol("T_T".into()), List(vec![
+                        Cons("::".into()), Symbol("T_T".into()), List(vec![])
+                    ])
+                ])
+            ])));
         }
     }
 

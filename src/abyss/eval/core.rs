@@ -45,7 +45,7 @@ pub fn env() -> Env {
 }
 
 #[inline]
-pub fn wrap(name: Option<String>, expr: Object, env: Env) -> Result<Object> {
+pub fn wrap(_name: Option<String>, expr: Object, env: Env) -> Result<Object> {
     use Object::*;
     match expr {
         Nil         => Ok(Nil),
@@ -56,7 +56,7 @@ pub fn wrap(name: Option<String>, expr: Object, env: Env) -> Result<Object> {
         Real(_)     => Ok(expr),
         Str(_)      => Ok(expr),
         Thunk(_, _, _) => Ok(expr),
-        _ => Ok(Object::Thunk(name, Rc::new(expr), env))
+        _ => Ok(Object::thunk(expr, env))
     }
 }
 

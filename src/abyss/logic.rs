@@ -113,14 +113,14 @@ fn unify_objects(this: &Object, other: &Object, unv: &mut Env) -> Result<(), Uni
             unify_var(&other, &this, unv)
         },
         (_, thunk @ Thunk(_, _, _)) => {
-            let v = lazy::eval_thunk(thunk);
+            let v = lazy::eval_thunk(thunk.clone());
             match v {
                 Ok(v) => unify_objects(this, &v, unv),
                 Err(_err) => Err(UnifyError { msg: format!("Unfinished unification error") })
             }
         }
         (thunk @ Thunk(_, _, _), _) => {
-            let v = lazy::eval_thunk(thunk);
+            let v = lazy::eval_thunk(thunk.clone());
             match v {
                 Ok(v) => unify_objects(&v, this, unv),
                 Err(_err) => Err(UnifyError { msg: format!("Unfinished unification error") })

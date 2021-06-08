@@ -20,7 +20,7 @@ pub fn eval_decl(decl: &Object, env: &mut Env) -> Result<()> {
     use Object::*;
     match decl {
         List(xs) => match &xs[..] {
-            [Var(op), def, expr] if op == "define" => bind(def, expr, env),
+            [Var(op), def, expr] if op == "define" => bind(def.clone(), expr.clone(), env),
             [Var(op), _, _] if op == "data" => todo!(),
             _ => Err(EvalError { msg: format!("Evaluation error: wrong format of declarations: {:?}", decl) })
         }

@@ -4,12 +4,12 @@ use std::hash::{ Hash, Hasher };
 //use super::config::*;
 use super::env::Environment;
 use std::rc::Rc;
-//use std::cell::RefCell;
+use std::cell::RefCell;
 
 
 pub type Env = Environment<String, Rc<Object>>;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct EvalError {
     pub msg: String
 }
@@ -51,6 +51,21 @@ impl Hash for Box<dyn CustomObj> {
 }
 
 
+#[derive(Debug, PartialEq, Eq)]
+pub struct Thunker {
+    pub evaluated: RefCell<bool>,
+    pub expr: RefCell<Object>,
+}
+
+impl Thunker {
+    pub fn new(expr: Object) -> Self {
+        Thunker { evaluated: RefCell::new(false), expr: RefCell::new(expr) }
+    }
+    pub fn value(&self) -> Object {
+        self.expr.borrow().clone()
+    }
+}
+
 
 #[allow(dead_code)]
 pub enum Object {
@@ -63,7 +78,7 @@ pub enum Object {
     Str(String),
     List(Vec<Object>),
     Closure(Option<String>, Rc<Object>, Rc<Object>, Env),
-    Thunk(Option<String>, Rc<Object>, Env),
+    Thunk(Option<String>, Rc<Thunker>, Env),
     //Fix() need fixpoint here
     Custom(Box<dyn CustomObj>)
 }
@@ -71,6 +86,9 @@ pub enum Object {
 impl Object {
     pub fn closure(ps: Object, expr: Object, env: Env) -> Self {
         Self::Closure(None, Rc::new(ps), Rc::new(expr), env.clone())
+    }
+    pub fn thunk(expr: Object, env: Env) -> Self {
+        Self::Thunk(None, Rc::new(Thunker::new(expr)), env)
     }
 }
 

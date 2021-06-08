@@ -2,49 +2,45 @@
 
 use crate::abyss;
 use crate::logic::Unifiable;
-use abyss::object::Object;
-use abyss::object::Env;
+use abyss::object::*;
+//use abyss::object::Env;
 use std::rc::Rc;
+//use std::cell::RefCell;
 use abyss::config::HashMap;
 use abyss::eval::core::*;
 pub use abyss::object::EvalError;
 use std::borrow::Borrow;
+//use std::borrow::BorrowMut;
 
 
 
 
-fn eval_atom(expr: &Object, env: &mut Env) -> Result<Object> {
+fn eval_atom(op: Object, a: Object, b: Object, env: &mut Env) -> Result<Object> {
     use Object::*;
     use atom::*;
-    match expr {
-        Var(s) if ["True", "False"].iter().any(|&x| x == s) => Ok(expr.clone()),
-        List(xs) => match &xs[..] {
-            [] => Ok(List(vec![])),
-            [Var(op), xs @ .. ] => {
-                let mut ys = vec![];
-                for x in xs {
-                    ys.push(force(x, env)?);
-                }
-                match &op[..] {
-                    "+" | "-" | "*" | "/" => eval_arith(op, &ys),
-                    "<"  => eval_lt(&ys),
-                    ">"  => eval_gt(&ys),
-                    "<=" => eval_le(&ys),
-                    ">=" => eval_ge(&ys),
-                    "==" => eval_eq(&ys),
-                    "/=" => eval_ne(&ys),
-                    unknown => Err(EvalError { msg: format!("Atom evaluation error: unknown atom operator: {:?}", unknown) })
-                }
-            },
-            _ => Err(EvalError { msg: format!("Atom evaluation error: evaluating {:?}", expr) })
+    match op {
+        Var(s) => {
+            let mut xs = vec![];
+            xs.push(force(a, env)?);
+            xs.push(force(b, env)?);
+            match &s[..] {
+                "+" | "-" | "*" | "/" => eval_arith(&s, &xs),
+                "<"  => eval_lt(&xs),
+                ">"  => eval_gt(&xs),
+                "<=" => eval_le(&xs),
+                ">=" => eval_ge(&xs),
+                "==" => eval_eq(&xs),
+                "/=" => eval_ne(&xs),
+                unknown => Err(EvalError { msg: format!("Atom evaluation error: unknown atom operator: {:?}", unknown) })
+            }
         },
-        _ => Err(EvalError { msg: format!("Atom evaluation error: evaluating {:?}", expr) })
+        _ => Err(EvalError { msg: format!("Atom evaluation error: evaluating {:?}", op) })
     }
 }
 
 /// Evaluate arithmetic expressions.
 #[inline]
-fn eval_if(cond: &Object, x: &Object, y: &Object, env: &mut Env) -> Result<Object> {
+fn eval_if(cond: Object, x: Object, y: Object, env: &mut Env) -> Result<Object> {
     use Object::*;
 
     let cond = force(cond, env)?;
@@ -57,8 +53,8 @@ fn eval_if(cond: &Object, x: &Object, y: &Object, env: &mut Env) -> Result<Objec
 
 
 #[inline]
-fn eval_case(expr: &Object, pat: &Object, res: &Object, env: &mut Env) -> Option<Result<Object>> {
-    let bind = pat.unify(expr);
+fn eval_case(expr: Object, pat: Object, res: Object, env: &mut Env) -> Option<Result<Object>> {
+    let bind = pat.unify(&expr);
     if let Ok(mut bind) = bind {
         let bind: HashMap<String, Rc<Object>> = bind.iter_mut().map(|(k, v)| (k.clone(), Rc::new(v.clone()))).collect();
         env.extend(bind);
@@ -70,7 +66,7 @@ fn eval_case(expr: &Object, pat: &Object, res: &Object, env: &mut Env) -> Option
 }
 
 /// Evaluate case(match) expressions
-fn eval_cases(expr: &Object, cases: &[Object], env: &mut Env) -> Result<Object> {
+fn eval_cases(expr: Object, cases: &[Object], env: &mut Env) -> Result<Object> {
     //println!("\ncases");
     use Object::*;
     let expr = evaluate(expr, env)?;
@@ -78,7 +74,7 @@ fn eval_cases(expr: &Object, cases: &[Object], env: &mut Env) -> Result<Object> 
         match case {
             List(xs) => match &xs[..] {
                 [pat, res] => {
-                    match eval_case(&expr, pat, res, env) {
+                    match eval_case(expr.clone(), pat.clone(), res.clone(), env) {
                         None => continue,
                         Some(res) => return res,
                     }
@@ -97,13 +93,13 @@ fn eval_cases(expr: &Object, cases: &[Object], env: &mut Env) -> Result<Object> 
 
 
 
-pub fn bind(left: &Object, right: &Object, env: &mut Env) -> Result<()> {
+pub fn bind(left: Object, right: Object, env: &mut Env) -> Result<()> {
     use Object::*;
     match (left, right) {
         (Var(s), expr) => {
             let v = match expr {
                 List(xs) => match &xs[..] {
-                    [Var(op), ..] if &op[..] == "lambda" => evaluate(expr, env)?,
+                    [Var(op), ..] if &op[..] == "lambda" => evaluate(List(xs), env)?,
                     others => List(others.to_vec())
                 }
                 others => others.clone()
@@ -124,11 +120,11 @@ pub fn bind(left: &Object, right: &Object, env: &mut Env) -> Result<()> {
         (List(xs), expr) => match &xs[..] {
             [Var(f), ps @ ..] => {
                 let lambda = weak(ps.to_vec(), expr.clone());
-                bind(&Var(f.clone()), &lambda, env)?
+                bind(Var(f.clone()), lambda, env)?
             },
-            _ => return Err(EvalError { msg: format!("Binding error: Invalid Binding {:?} and {:?}", left, right) })
+            _ => return Err(EvalError { msg: format!("Binding error: Invalid Binding {:?} and {:?}", List(xs), expr) })
         }
-        _ => return Err(EvalError { msg: format!("Binding error: Binding {:?} and {:?}", left, right) })
+        (x, y) => return Err(EvalError { msg: format!("Binding error: Binding {:?} and {:?}", x, y) })
     }
     Ok(())
 }
@@ -140,7 +136,7 @@ fn bindings(bindings: &[Object], env: &mut Env) -> Result<()> {
         match binding {
             List(xs) => match &xs[..] {
                 [def, expr] => {
-                    bind(def, expr, env)?;
+                    bind(def.clone(), expr.clone(), env)?;
                 }
                 _ => return Err(EvalError { msg: format!("Binding error: {:?}", binding) })
             },
@@ -154,7 +150,20 @@ fn bindings(bindings: &[Object], env: &mut Env) -> Result<()> {
 
 
 
-
+#[inline]
+fn apply_env(f: Object, name: &Option<String>, pat: &Object, x: &Object, env: &mut Env) -> Result<()> {
+    let bind = pat.unify(&x);
+    if let Ok(bind) = bind {
+        let bind: HashMap<String, Rc<Object>> = bind.into_iter().map(|(k, v)| (k, Rc::new(v))).collect();
+        if let Some(name) = name {
+            env.insert(name.clone(), Rc::new(f));
+        }
+        env.extend(bind);
+        Ok(())
+    } else {
+        Err(EvalError { msg: format!("Application error: Unification error: unifying {:?} and {:?}", pat, x) })
+    }
+}
 
 
 /// Handle basic function application `(f x)`
@@ -163,47 +172,22 @@ fn bindings(bindings: &[Object], env: &mut Env) -> Result<()> {
 fn apply(f: Object, x: Object) -> Result<Object> {
     use Object::*;
     
-    match f {
+    //let g = f.clone();
+    match &f {
         Closure(name, params, expr, env) => {
             // Unification should be invoked here, but we only allow single variable here to debug...
-            let mut env = env;
+            let mut env = env.clone();
             
             match params.borrow() {
                 List(ps) => match &ps[..] {
-                    [ ] => evaluate(&*expr, &mut env),
+                    [ ] => evaluate(Object::clone(expr.borrow()), &mut env),
                     [pat] => {
-                        let bind = pat.unify(&x);
-                        if let Ok(bind) = bind {
-                            let bind: HashMap<String, Rc<Object>> = bind.into_iter().map(|(k, v)| (k, Rc::new(v))).collect();
-                            if let Some(name) = name {
-                                env.insert(
-                                    name.clone(),
-                                    Rc::new(Closure(Some(name), Rc::new(List(ps.to_vec())), expr.clone(), env.clone()))
-                                );
-                            }
-                            //println!("{:?}", ps);
-                            env.extend(bind);
-                            //println!("\napply: {:?}", env);
-                            evaluate(&*expr, &mut env)
-                        } else {
-                            Err(EvalError { msg: format!("Application error: Unification error: unifying {:?} and {:?}", pat, x) })
-                        }
+                        apply_env(f.clone(), name, pat, &x, &mut env)?;
+                        evaluate(Object::clone(expr.borrow()), &mut env)
                     },
                     [pat, ss @ ..] => {
-                        let bind = pat.unify(&x);
-                        if let Ok(bind) = bind {
-                            let bind: HashMap<String, Rc<Object>> = bind.into_iter().map(|(k, v)| (k, Rc::new(v))).collect();
-                            if let Some(name) = name {
-                                env.insert(
-                                    name.clone(),
-                                    Rc::new(Closure(Some(name), Rc::new(List(ps.to_vec())), expr.clone(), env.clone()))
-                                );
-                            }
-                            env.extend(bind);
-                            Ok(Closure(None, Rc::new(List(ss.to_vec())), expr, env))
-                        } else {
-                            Err(EvalError { msg: format!("Application error: Unification error: unifying {:?} and {:?}", pat, x) })
-                        }
+                        apply_env(f.clone(), name, pat, &x, &mut env)?;
+                        Ok(Closure(None, Rc::new(List(ss.to_vec())), expr.clone(), env.clone()))
                     }
                 },
                 others => Err(EvalError { msg: format!("Function parameters should be a list instead of {:?}", others) })
@@ -216,11 +200,11 @@ fn apply(f: Object, x: Object) -> Result<Object> {
 
 
 /// Handle cons expression
-fn eval_cons(x: &Object, xs: &Object, env: &mut Env) -> Result<Object> {
+fn eval_cons(x: Object, xs: Object, env: &mut Env) -> Result<Object> {
     use Object::*;
     //let xs = evaluate(xs, env)?;
-    let xs = wrap(None, xs.clone(), env.clone())?;
-    let x  = wrap(None, x .clone(), env.clone())?;
+    let xs = wrap(None, xs, env.clone())?;
+    let x  = wrap(None, x , env.clone())?;
     Ok(Object::List(vec![Cons("::".into()), x, xs]))
 }
 
@@ -261,17 +245,26 @@ fn eval_tail(xs: &Object, env: &mut Env) -> Result<Object> {
 
 /// Thunk evaluation
 #[inline]
-pub fn eval_thunk(thunk: &Object) -> Result<Object> {
+pub fn eval_thunk(thunk: Object) -> Result<Object> {
     //println!("\nthunk: {:?}", thunk);
     use Object::*;
-    match thunk.clone() {
-        Thunk(None, expr, mut env) => {
+    match thunk {
+        Thunk(None, expr, env) => {
             //println!("{:?}", env);
-            evaluate(&expr, &mut env)
+            let mut env = env.clone();
+            let res = evaluate(expr.value(), &mut env);
+            let result = res.clone();
+            if let Ok(res) = res {
+                let p: &Thunker = expr.borrow();
+                *p.expr.borrow_mut() = res;
+            }
+            result
         },
-        Thunk(Some(name), expr, mut env) => {
-            env.insert(name.clone(), Rc::new(thunk.clone()));
-            evaluate(&expr, &mut env)
+        Thunk(Some(name), expr, env) => {
+            let mut env = env.clone();
+            let thunk = Thunk(Some(name.clone()), expr.clone(), env.clone());
+            env.insert(name.clone(), Rc::new(thunk));
+            evaluate(expr.value(), &mut env)
         },
         _ => Err(EvalError { msg: format!("Error while evaluating thunk: {:?}", thunk) })
     }
@@ -279,28 +272,43 @@ pub fn eval_thunk(thunk: &Object) -> Result<Object> {
 
 /// Force strict evaluation
 #[inline]
-pub fn force(obj: &Object, env: &mut Env) -> Result<Object> {
+pub fn force(obj: Object, env: &mut Env) -> Result<Object> {
     //println!("\nforce: {} in {:?}", thunk, env);
     use Object::*;
-    let obj = evaluate(obj, env)?;
-    match obj {
-        Thunk(_, _, _) => eval_thunk(&obj),
-        others => Ok(others)
+    let e = obj.clone();
+    let v = evaluate(obj, env)?;
+    match v {
+        Thunk(_, _, _) => {
+            let v = eval_thunk(v)?;
+            match e {
+                Var(s) => {
+                    env.insert(s, Rc::new(v.clone()));
+                },
+                _ => {}
+            } 
+            Ok(v)
+        },
+        others => Ok(others.clone())
     }
 }
 
 #[inline]
-pub fn force_value(obj: &Object, env: &mut Env) -> Result<Object> {
+/// Very bad, never use!
+fn force_value(obj: Object, env: &mut Env) -> Result<Object> {
+    //println!("force value: {:?}", obj);
     use Object::*;
     match obj {
-        Thunk(_, _, _) => force_value(&eval_thunk(&obj)?, env),
-        List(xs) => {
-            let mut ys = vec![];
-            for x in xs {
-                let x = force_value(&x, env)?;
-                ys.push(x);
+        Thunk(_, _, _) => force_value(eval_thunk(obj)?, env),
+        List(xs) => match &xs[..] {
+            [Cons(cons), xs @ ..] => {
+                let mut ys = vec![Cons(cons.clone())];
+                for x in xs {
+                    let x = force_value(x.clone(), env)?;
+                    ys.push(x);
+                }
+                Ok(List(ys))
             }
-            Ok(List(ys))
+            others => Ok(List(others.to_vec()))
         }
         others => Ok(others.clone())
     }
@@ -309,73 +317,120 @@ pub fn force_value(obj: &Object, env: &mut Env) -> Result<Object> {
 
 
 
+
+macro_rules! get {
+    ($sx: expr, $msg: expr) => {
+        match $sx {
+            Some(x) => Ok(x),
+            None => Err(EvalError { msg: format!("Getting {}", $msg) })
+        }
+    };
+}
+
+
 /// The main evaluate function to calculate all abyss expressions
-pub fn evaluate(expr: &Object, env: &mut Env) -> Result<Object> {
+pub fn evaluate(expr: Object, env: &mut Env) -> Result<Object> {
     use Object::*;
     //println!("\neval: {} in {:?}", expr, 0);
     let ans = match expr {
-        Nil         => Ok(Nil),
-        Var(s) if atom::is_atom(s) => Ok(expr.clone()),
-        Var(s)      => env.get(s).map(|x| (**x).clone()).ok_or(EvalError { msg: format!("No such variable: {}", s) }),
-        Symbol(_)   => Ok(expr.clone()),
-        Integer(_)  => Ok(expr.clone()),
-        Real(_)     => Ok(expr.clone()),
-        Str(_)      => Ok(expr.clone()),
-        Thunk(_, _, _) => Ok(expr.clone()),
-        List(xs)    => match &xs[..] {
-            // Empty list
-            [] => Ok(expr.clone()),
-
-            // Basic atom evaluation (should use strict evaluation)
-            [Var(op), _, _] if atom::is_atom_op(&op) => eval_atom(expr, env),
-
-            // Lambda abstraction
-            [Var(op), ps, expr] if &op[..] == "lambda" => {
-                Ok(Object::closure(ps.clone(), expr.clone(), env.clone()))
-            },
-
-            // Delay evaluation
-            [Var(op), x] if &op[..] == "lazy" => {
-                wrap(None, x.clone(), env.clone())
+        Nil            => Ok(Nil),
+        Var(ref s) if atom::is_atom(s) => Ok(expr),
+        Var(ref s)     => env.get(s).map(|x| (**x).clone()).ok_or(EvalError { msg: format!("No such variable: {}", s) }),
+        Symbol(_)      => Ok(expr),
+        Integer(_)     => Ok(expr),
+        Real(_)        => Ok(expr),
+        Str(_)         => Ok(expr),
+        Thunk(_, _, _) => Ok(expr),
+        List(xs)       => {
+            let mut it = xs.into_iter();
+            let op = it.next();
+            if let None = op {
+                return Ok(List(vec![]));
             }
-
-            // Force evaluation
-            [Var(op), x] if &op[..] == "!" => {
-                force_value(&evaluate(x, env)?, env)
-            }
-            
-            // If expressions
-            [Var(op), cond, x, y] if &op[..] == "if" => eval_if(cond, x, y, env),
-
-            // Let bindings
-            [Var(op), List(bs), expr] if &op[..] == "let" => {
-                bindings(bs, env)?;
-                evaluate(expr, env)
-            },
-
-            // Case (Match) expression
-            [Var(op), expr, List(cases)] if &op[..] == "case" => eval_cases(expr, cases, env),
-
-            // List operations
-            [Var(op), x, xs]   if &op[..] == "::"   => eval_cons(x, xs, env),
-            [Var(op), xs @ ..] if &op[..] == "list" => eval_list(xs, env),
-            /*
-            [Var(op), xs]      if &op[..] == "head" => eval_head(xs, env),
-            [Var(op), xs]      if &op[..] == "tail" => eval_tail(xs, env),
-            */
-
-            // Weak head normal terms (Data constructors)
-            [Cons(_), ..] => Ok(expr.clone()),
-
-            // Normal function application
-            [f, xs @ .. ] => {
-                let mut fv = force(f, env)?;
-                for x in xs {
-                    //let xv = evaluate(x, env)?;
-                    let xv = wrap(None, x.clone(), env.clone())?;
-                    fv = apply(fv, xv)?;
+            match op.unwrap() {
+                Var(op) if atom::is_atom_op(&op) => {
+                    let (a, b) = (
+                        get!(it.next(), format!("2nd argument of function: {}", op))?,
+                        get!(it.next(), format!("3rd argument of function: {}", op))?,
+                    );
+                    eval_atom(Var(op), a, b, env)
                 }
-                Ok(fv)
+                Var(op) if &op[..] == "lambda" => {
+                    let (ps, expr) = (
+                        get!(it.next(), "parameters of lambda")?,
+                        get!(it.next(), "expression of lambda")?,
+                    );
+                    Ok(Object::closure(ps, expr, env.clone()))
+                },
+                Var(op) if &op[..] == "lazy" => {
+                    let x = get!(it.next(), "parameter of function: lazy")?;
+                    wrap(None, x, env.clone())
+                }
+                Var(op) if &op[..] == "!" => {
+                    let x = get!(it.next(), "parameter of function: !")?;
+                    force_value(evaluate(x, env)?, env)
+                }
+                Var(op) if &op[..] == "if" => {
+                    let (cond, x, y) = (
+                        get!(it.next(), "condition of function: if"   )?,
+                        get!(it.next(), "true branch of function: if" )?,
+                        get!(it.next(), "false branch of function: if")?,
+                    );
+                    eval_if(cond, x, y, env)
+                }
+                Var(op) if &op[..] == "let" => {
+                    let (bs, expr) = (
+                        get!(it.next(), "bindings of let expression"  )?,
+                        get!(it.next(), "expression of let expression")?,
+                    );
+                    match &bs {
+                        List(bs) => {
+                            bindings(bs, env)?;
+                            evaluate(expr, env)
+                        }
+                        _ => Err(EvalError { msg: format!("Wrong format of bindings: {:?}", bs) })
+                    }
+                },
+                Var(op) if &op[..] == "case" => {
+                    let (expr, cases) = (
+                        get!(it.next(), "cases of case expression")?,
+                        get!(it.next(), "expression of case expression")?,
+                    );
+                    match &cases {
+                        List(cases) => {
+                            eval_cases(expr, cases, env)
+                        }
+                        _ => Err(EvalError { msg: format!("Wrong format of cases: {:?}", cases) })
+                    }
+                },
+                Var(op) if &op[..] == "::" => {
+                    let (x, xs) = (
+                        get!(it.next(), "1st parameter of function: ::")?,
+                        get!(it.next(), "2nd parameter of function: ::")?,
+                    );
+                    eval_cons(x, xs, env)
+                },
+                Var(op) if &op[..] == "list" => {
+                    let mut xs = vec![];
+                    for x in it {
+                        xs.push(x);
+                    }
+                    eval_list(&xs, env)
+                },
+                Cons(f) => {
+                    let mut xs = vec![Cons(f)];
+                    xs.extend(it);
+                    Ok(List(xs))
+                },
+                f /* normal function application */ => {
+                    let mut f = force(f, env)?;
+                    for x in it {
+                        //let xv = evaluate(x, env)?;
+                        let x = wrap(None, x, env.clone())?;
+                        f = apply(f, x)?;
+                    }
+                    Ok(f)
+                }
             }
         },
         _ => Err(EvalError { msg: format!("Evaluation error: Unknow expression: {:?}", expr) })
@@ -400,10 +455,16 @@ mod tests {
     #[test]
     fn simple_recursive() {
         let mut env = env();
-        let src = String::from("(let ((gen (lambda (s n) (case n ((0 ()) (n (:: s (gen s (- n 1))))))))) (gen 'T_T 3))");
+        let src = String::from("(! (let ((gen (lambda (s n) (case n ((0 ()) (n (:: s (gen s (- n 1))))))))) (gen 'T_T 3)))");
         if let Ok(ast) = src.parse::<Object>() {
-            let res = evaluate(&ast, &mut env);
-            assert_eq!(res.ok(), Some(List(vec![Symbol("T_T".into()), Symbol("T_T".into()), Symbol("T_T".into())])));
+            let res = evaluate(ast, &mut env);
+            assert_eq!(res.ok(), Some(List(vec![
+                Cons("::".into()), Symbol("T_T".into()), List(vec![
+                    Cons("::".into()), Symbol("T_T".into()), List(vec![
+                        Cons("::".into()), Symbol("T_T".into()), List(vec![])
+                    ])
+                ])
+            ])));
         }
     }
 
@@ -412,8 +473,8 @@ mod tests {
         let mut env = env();
         let src = String::from("(let ((fact (lambda (n) (case n ((0 1) (n (+ n (fact (- n 1))))))))) (fact 10))");
         if let Ok(ast) = src.parse::<Object>() {
-            let res = evaluate(&ast, &mut env);
-            assert_eq!(res.ok(), Some(Integer(56)));
+            let res = evaluate(ast, &mut env);
+            assert_eq!(res, Ok(Integer(56)));
         }
     }
 }

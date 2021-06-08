@@ -8,6 +8,7 @@ pub use super::object::{
 };
 pub use self::core::*;
 //use std::rc::Rc;
+//use lazy as interpreter;
 use lazy as interpreter;
 
 
@@ -15,12 +16,13 @@ impl Eval<Object> for Object {
     type Error = EvalError;
     fn eval(&self, env: &Env) -> std::result::Result<Object, EvalError> {
         let mut env = env.clone();
-        interpreter::evaluate(self, &mut env)
+        let expr = self.clone();
+        interpreter::evaluate(expr, &mut env)
     }
 }
 
 
-pub fn bind(left: &Object, right: &Object, env: &mut Env) -> Result<()> {
+pub fn bind(left: Object, right: Object, env: &mut Env) -> Result<()> {
     interpreter::bind(left, right, env)
 }
 

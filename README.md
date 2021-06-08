@@ -32,6 +32,7 @@ Rust implementation of Abyss programming language
 
 - Generating list
 ```scheme
-(let (((gen s n) (case n ((0 ()) (n (cons s (gen s (- n 1)))))))) (gen 'T_T 10))
-;==> (T_T T_T T_T T_T T_T T_T T_T T_T T_T T_T)
+(let (((gen s n) (case n ((0 ()) (n (:: s (gen s (- n 1)))))))) (gen 'T_T 10))
+; strict ==> (T_T T_T T_T T_T T_T T_T T_T T_T T_T T_T)
+; lazy   ==> (:: T_T <thunk>)
 ```
