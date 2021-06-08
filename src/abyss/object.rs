@@ -87,8 +87,14 @@ impl Object {
     pub fn closure(ps: Object, expr: Object, env: Env) -> Self {
         Self::Closure(None, Rc::new(ps), Rc::new(expr), env.clone())
     }
+    pub fn closure_of(name: Option<String>, ps: Object, expr: Object, env: Env) -> Self {
+        Self::Closure(name, Rc::new(ps), Rc::new(expr), env.clone())
+    }
     pub fn thunk(expr: Object, env: Env) -> Self {
         Self::Thunk(None, Rc::new(Thunker::new(expr)), env)
+    }
+    pub fn thunk_of(name: Option<String>, expr: Object, env: Env) -> Self {
+        Self::Thunk(name, Rc::new(Thunker::new(expr)), env)
     }
 }
 

@@ -45,18 +45,28 @@ pub fn env() -> Env {
 }
 
 #[inline]
-pub fn wrap(_name: Option<String>, expr: Object, env: Env) -> Result<Object> {
+pub fn wrap(name: Option<String>, expr: Object, env: Env) -> Result<Object> {
     use Object::*;
     match expr {
         Nil         => Ok(Nil),
-        Var(s)      => env.get(&s).map(|x| (**x).clone()).ok_or(EvalError { msg: format!("No such variable: {}", s) }),
+        Var(ref s)      => {
+            if env.contains_key(s) {
+                Ok(Object::thunk_of(name, expr.clone(), env.clone()))
+            } else {
+                Err(EvalError { msg: format!("No such variable: {}", s) })
+            }
+            //env.get(&s).map(|x| (**x).clone()).ok_or(EvalError { msg: format!("No such variable: {}", s) }),
+        },
         Symbol(_)   => Ok(expr),
         Cons(_)     => Ok(expr),
         Integer(_)  => Ok(expr),
         Real(_)     => Ok(expr),
         Str(_)      => Ok(expr),
         Thunk(_, _, _) => Ok(expr),
-        _ => Ok(Object::thunk(expr, env))
+        _ => {
+            //println!("wrap {:?}", expr);
+            Ok(Object::thunk_of(name, expr, env))
+        }
     }
 }
 

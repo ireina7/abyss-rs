@@ -10,7 +10,6 @@ use abyss::config::HashMap;
 use abyss::eval::core::*;
 pub use abyss::object::EvalError;
 use std::borrow::Borrow;
-//use std::borrow::BorrowMut;
 
 
 
@@ -60,7 +59,7 @@ fn eval_case(expr: Object, pat: Object, res: Object, env: &mut Env) -> Option<Re
         env.extend(bind);
         Some(evaluate(res, env))
     } else {
-        //println!("{:?}", bind);
+        //println!("{:?}", bind); need to finish error conversion!!
         None
     }
 }
@@ -88,7 +87,7 @@ fn eval_cases(expr: Object, cases: &[Object], env: &mut Env) -> Result<Object> {
             }),
         }
     }
-    Err(EvalError { msg: format!("Case expression error") })
+    Err(EvalError { msg: format!("Case expression error, expr: {}, cases: {}", expr, cases.len()) })
 }
 
 
@@ -111,11 +110,11 @@ pub fn bind(left: Object, right: Object, env: &mut Env) -> Result<()> {
                 },
                 others => {
                     let thunk = wrap(Some(s.clone()), others.clone(), env.clone())?;
-                    //env.insert(s.clone(), thunk.clone());
+                    //env.insert(s.clone(), Rc::new(thunk.clone()));
                     thunk
                 }
             };
-            env.insert(s.clone(), Rc::new(v.clone()));
+            env.insert(s.clone(), Rc::new(v));
         }
         (List(xs), expr) => match &xs[..] {
             [Var(f), ps @ ..] => {
@@ -161,17 +160,31 @@ fn apply_env(f: Object, name: &Option<String>, pat: &Object, x: &Object, env: &m
         env.extend(bind);
         Ok(())
     } else {
+        //println!("{:?}", bind);
         Err(EvalError { msg: format!("Application error: Unification error: unifying {:?} and {:?}", pat, x) })
     }
 }
 
+
+#[inline]
+fn wash_type(pat: &Object) -> &Object {
+    use Object::*;
+    match pat {
+        List(xs) if match &xs[..] { 
+            [Var(s), _x, _type] if &s[..] == ":" => true,
+            _ => false,
+         } => {
+            &xs[1]
+        },
+        _ => pat
+    }
+}
 
 /// Handle basic function application `(f x)`
 /// 
 /// `f` and `x` should have been evaluated (lazy?)!
 fn apply(f: Object, x: Object) -> Result<Object> {
     use Object::*;
-    
     //let g = f.clone();
     match &f {
         Closure(name, params, expr, env) => {
@@ -180,20 +193,27 @@ fn apply(f: Object, x: Object) -> Result<Object> {
             
             match params.borrow() {
                 List(ps) => match &ps[..] {
-                    [ ] => evaluate(Object::clone(expr.borrow()), &mut env),
+                    [ ] => if x == Nil {
+                        if let Some(name) = name {
+                            env.insert(name.clone(), Rc::new(f.clone()));
+                        }
+                        evaluate(Object::clone(expr.borrow()), &mut env)
+                    } else {
+                        Err(EvalError { msg: format!("Applying error: unexpected parameter: {}", x) })
+                    },
                     [pat] => {
-                        apply_env(f.clone(), name, pat, &x, &mut env)?;
+                        apply_env(f.clone(), name, wash_type(pat), &x, &mut env)?;
                         evaluate(Object::clone(expr.borrow()), &mut env)
                     },
                     [pat, ss @ ..] => {
-                        apply_env(f.clone(), name, pat, &x, &mut env)?;
+                        apply_env(f.clone(), name, wash_type(pat), &x, &mut env)?;
                         Ok(Closure(None, Rc::new(List(ss.to_vec())), expr.clone(), env.clone()))
                     }
                 },
                 others => Err(EvalError { msg: format!("Function parameters should be a list instead of {:?}", others) })
             }
         }
-        _ => Err(EvalError { msg: format!("Function application error: {:?}", f) })
+        _ => Err(EvalError { msg: format!("Function application error: Applying {:?}", f) })
     }
 }
 
@@ -249,22 +269,22 @@ pub fn eval_thunk(thunk: Object) -> Result<Object> {
     //println!("\nthunk: {:?}", thunk);
     use Object::*;
     match thunk {
-        Thunk(None, expr, env) => {
-            //println!("{:?}", env);
-            let mut env = env.clone();
-            let res = evaluate(expr.value(), &mut env);
-            let result = res.clone();
-            if let Ok(res) = res {
-                let p: &Thunker = expr.borrow();
-                *p.expr.borrow_mut() = res;
+        Thunk(name, thunk, mut env) => {
+            if let Some(name) = name {
+                let thunk = Thunk(Some(name.clone()), thunk.clone(), env.clone());
+                env.insert(name.clone(), Rc::new(thunk));
             }
-            result
-        },
-        Thunk(Some(name), expr, env) => {
-            let mut env = env.clone();
-            let thunk = Thunk(Some(name.clone()), expr.clone(), env.clone());
-            env.insert(name.clone(), Rc::new(thunk));
-            evaluate(expr.value(), &mut env)
+            if *thunk.evaluated.borrow() == true {
+                return Ok(thunk.value());
+            }
+            let mut res = evaluate(thunk.value(), &mut env)?;
+            if let Thunk(_, _, _) = res {
+                res = eval_thunk(res)?;
+            }
+            let result = res.clone();
+            //let p: &Thunker = expr.borrow();
+            *thunk.as_ref().expr.borrow_mut() = res;
+            Ok(result)
         },
         _ => Err(EvalError { msg: format!("Error while evaluating thunk: {:?}", thunk) })
     }
@@ -285,7 +305,7 @@ pub fn force(obj: Object, env: &mut Env) -> Result<Object> {
                     env.insert(s, Rc::new(v.clone()));
                 },
                 _ => {}
-            } 
+            }
             Ok(v)
         },
         others => Ok(others.clone())
@@ -331,7 +351,7 @@ macro_rules! get {
 /// The main evaluate function to calculate all abyss expressions
 pub fn evaluate(expr: Object, env: &mut Env) -> Result<Object> {
     use Object::*;
-    //println!("\neval: {} in {:?}", expr, 0);
+    //println!("\neval: {:?} in {:?}", expr, 0);
     let ans = match expr {
         Nil            => Ok(Nil),
         Var(ref s) if atom::is_atom(s) => Ok(expr),
@@ -422,6 +442,10 @@ pub fn evaluate(expr: Object, env: &mut Env) -> Result<Object> {
                     xs.extend(it);
                     Ok(List(xs))
                 },
+                f if it.clone().peekable().peek() == None => {
+                    let f = force(f, env)?;
+                    apply(f, Nil)
+                },
                 f /* normal function application */ => {
                     let mut f = force(f, env)?;
                     for x in it {
@@ -458,7 +482,7 @@ mod tests {
         let src = String::from("(! (let ((gen (lambda (s n) (case n ((0 ()) (n (:: s (gen s (- n 1))))))))) (gen 'T_T 3)))");
         if let Ok(ast) = src.parse::<Object>() {
             let res = evaluate(ast, &mut env);
-            assert_eq!(res.ok(), Some(List(vec![
+            assert_eq!(res, Ok(List(vec![
                 Cons("::".into()), Symbol("T_T".into()), List(vec![
                     Cons("::".into()), Symbol("T_T".into()), List(vec![
                         Cons("::".into()), Symbol("T_T".into()), List(vec![])

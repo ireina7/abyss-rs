@@ -23,7 +23,7 @@ impl Eval<Type> for Object {
     fn eval(&self, env: &Env) -> Result<Type, CheckerError> {
         let mut env = env.clone();
         let mut tnv = Env::new();
-        Ok(Type { val: check(self, &mut env, &mut tnv)? })
+        Ok(Type { val: check(self.clone(), &mut env, &mut tnv)? })
     }
 }
 
@@ -34,7 +34,7 @@ fn arrow(types: Vec<Object>) -> Object {
     List(vec![Cons("->".into())].into_iter().chain(types.into_iter()).collect())
 }
 
-fn check(expr: &Object, env: &mut Env, tnv: &mut Env) -> Result<Object, CheckerError> {
+fn check(expr: Object, env: &mut Env, tnv: &mut Env) -> Result<Object, CheckerError> {
     use Object::*;
     //println!("eval: {}", expr);
     #[inline] fn tag(s: &str) -> Object {
@@ -42,14 +42,14 @@ fn check(expr: &Object, env: &mut Env, tnv: &mut Env) -> Result<Object, CheckerE
     }
     match expr {
         Nil         => Ok(Nil),
-        Var(s)      => tnv.get(s).map(|x| (**x).clone()).ok_or(CheckerError { msg: format!("No such variable: {}", s) }),
+        Var(ref s)  => tnv.get(s).map(|x| (**x).clone()).ok_or(CheckerError { msg: format!("No such variable: {}", s) }),
         Symbol(_)   => Ok(tag("Symbol")),
         Integer(_)  => Ok(tag("Int")),
         Real(_)     => Ok(tag("Real")),
         Str(_)      => Ok(tag("String")),
         Thunk(_, expr, env) => {
             let mut env = env.clone();
-            check(&expr.value(), &mut env, tnv)
+            check(expr.value(), &mut env, tnv)
         },
         List(xs)    => match &xs[..] {
 
@@ -60,10 +60,10 @@ fn check(expr: &Object, env: &mut Env, tnv: &mut Env) -> Result<Object, CheckerE
             [Var(op), List(ps), expr] if &op[..] == "lambda" => {
                 let mut pts = vec![];
                 for p in ps {
-                    let pt = check(p, env, tnv)?;
+                    let pt = check(p.clone(), env, tnv)?;
                     pts.push(pt);
                 }
-                let et = check(expr, env, tnv)?;
+                let et = check(expr.clone(), env, tnv)?;
                 pts.push(et);
                 Ok(arrow(pts))
             },

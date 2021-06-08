@@ -8,8 +8,8 @@ pub use super::object::{
 };
 pub use self::core::*;
 //use std::rc::Rc;
-//use lazy as interpreter;
 use lazy as interpreter;
+//use strict as interpreter;
 
 
 impl Eval<Object> for Object {
