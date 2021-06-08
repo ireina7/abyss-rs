@@ -7,7 +7,7 @@ use std::borrow::Borrow;
 
 #[derive(Debug)]
 pub struct Environment<K, V> {
-    env: HashMap<K, V>
+    pub env: HashMap<K, V>
 }
 
 #[allow(dead_code)]

@@ -360,6 +360,7 @@ pub fn evaluate(expr: Object, env: &mut Env) -> Result<Object> {
         Integer(_)     => Ok(expr),
         Real(_)        => Ok(expr),
         Str(_)         => Ok(expr),
+        Closure(_, _, _, _) => Ok(expr),
         Thunk(_, _, _) => Ok(expr),
         List(xs)       => {
             let mut it = xs.into_iter();

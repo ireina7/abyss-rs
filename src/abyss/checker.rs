@@ -54,7 +54,7 @@ fn check(expr: Object, env: &mut Env, tnv: &mut Env) -> Result<Object, CheckerEr
         List(xs)    => match &xs[..] {
 
             // Empty list
-            [] => Ok(List(vec![tag("_")])),
+            [] => Ok(List(vec![tag("Unit")])),
 
             // Lambda abstraction
             [Var(op), List(ps), expr] if &op[..] == "lambda" => {
