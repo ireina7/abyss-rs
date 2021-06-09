@@ -1,6 +1,7 @@
 use super::object::Object;
 //use super::env::Environment;
 use crate::logic::*;
+use crate::utils::error::Backtrace;
 use std::collections::HashMap;
 use super::eval::lazy;
 
@@ -13,7 +14,8 @@ impl Unifiable for Object {
     {
         use Object::*;
         let mut unv = HashMap::new(); // the environment for unification
-        let res = unify_objects(self, other, &mut unv);
+        let mut log = Backtrace::new();
+        let res = unify_objects(self, other, &mut unv, &mut log);
         if let Err(err) = res {
             return Err(err)
         }
@@ -56,17 +58,17 @@ fn subst(map: &HashMap<Object, Object>, obj: &Object) -> Option<Object> {
 
 
 
-fn unify_var(var: &Object, v: &Object, unv: &mut Env) -> Result<(), UnifyError> {
+fn unify_var(var: &Object, v: &Object, unv: &mut Env, backtrace: &mut Backtrace) -> Result<(), UnifyError> {
     use Object::*;
     //println!("Unifying var: {:?} and {}", var, v);
     match (var, v) {
         (Var(_), _) if unv.contains_key(var) => {
             let next = unv[var].clone();
-            unify_objects(&next, v, unv)
+            unify_objects(&next, v, unv, backtrace)
         },
         (Var(_), _) if unv.contains_key(v) => {
             let next = unv[v].clone();
-            unify_objects(var, &next, unv)
+            unify_objects(var, &next, unv, backtrace)
         },
         (Var(_), _) if check_occurs(var, v, unv) => {
             Err(UnifyError { msg: format!("Unification error: check occurence error!") })
@@ -98,7 +100,7 @@ fn check_occurs(v: &Object, term: &Object, unv: &Env) -> bool {
 
 
 
-fn unify_objects(this: &Object, other: &Object, unv: &mut Env) -> Result<(), UnifyError> {
+fn unify_objects(this: &Object, other: &Object, unv: &mut Env, backtrace: &mut Backtrace) -> Result<(), UnifyError> {
     use Object::*;
     //println!("Unifying: {:?} and {:?}", this, 0);
     match (this, other) {
@@ -109,24 +111,24 @@ fn unify_objects(this: &Object, other: &Object, unv: &mut Env) -> Result<(), Uni
         (Symbol (x), Symbol (y)) if x == y => Ok(()),
         (Cons   (x), Cons   (y)) if x == y => Ok(()), 
         (Var(_), _) => {
-            unify_var(&this, &other, unv)
+            unify_var(&this, &other, unv, backtrace)
         },
         (_, Var(_)) => {
-            unify_var(&other, &this, unv)
+            unify_var(&other, &this, unv, backtrace)
         },
         (_, thunk @ Thunk(_, _, _)) => {
             //println!("before: {:?}", thunk);
-            let v = lazy::eval_thunk(thunk.clone());
+            let v = lazy::eval_thunk(thunk.clone(), backtrace);
             //println!("after: ");
             match v {
-                Ok(v) => unify_objects(this, &v, unv),
+                Ok(v) => unify_objects(this, &v, unv, backtrace),
                 Err(_err) => Err(UnifyError { msg: format!("Unfinished unification error") })
             }
         }
         (thunk @ Thunk(_, _, _), _) => {
-            let v = lazy::eval_thunk(thunk.clone());
+            let v = lazy::eval_thunk(thunk.clone(), backtrace);
             match v {
-                Ok(v) => unify_objects(&v, this, unv),
+                Ok(v) => unify_objects(&v, this, unv, backtrace),
                 Err(_err) => Err(UnifyError { msg: format!("Unfinished unification error") })
             }
         }
@@ -134,12 +136,12 @@ fn unify_objects(this: &Object, other: &Object, unv: &mut Env) -> Result<(), Uni
             !xs.is_empty() && xs[0] == Cons("::".into()) && 
             !ys.is_empty() && ys[0] != Cons("::".into()) => {
             
-            unify_objects(this, &unpack(other.clone()), unv)
+            unify_objects(this, &unpack(other.clone()), unv, backtrace)
         },
 
         (List(xs), List(ys)) if xs.len() == ys.len() => {
             for (x, y) in xs.iter().zip(ys.iter()) {
-                let res = unify_objects(x, y, unv);
+                let res = unify_objects(x, y, unv, backtrace);
                 if let Err(_) = res {
                     return res;
                 }

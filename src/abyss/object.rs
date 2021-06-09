@@ -18,17 +18,33 @@ pub struct EvalError {
 
 impl EvalError {
     #[inline]
-    pub fn new(msg: String) -> Self {
+    pub fn new(msg: String, backtrace: Backtrace) -> Self {
+        EvalError {
+            msg,
+            backtrace: Some(backtrace),
+        }
+    }
+    pub fn msg(msg: String) -> Self {
         EvalError {
             msg: msg,
             backtrace: None,
+        }
+    }
+    pub fn log(&self, backtrace: Backtrace) -> Self {
+        EvalError {
+            msg: self.msg.clone(),
+            backtrace: Some(backtrace),
         }
     }
 }
 
 impl fmt::Display for EvalError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Error: {}", self.msg)
+        let backtrace = match &self.backtrace {
+            None => "None".to_string(),
+            Some(bt) => format!("{}", bt)
+        };
+        write!(f, "Error: {}\nBacktrace:\n{}", self.msg, backtrace)
     }
 }
 

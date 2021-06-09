@@ -53,7 +53,7 @@ pub fn wrap(name: Option<String>, expr: Object, env: Env) -> Result<Object> {
             if env.contains_key(s) {
                 Ok(Object::thunk_of(name, expr.clone(), env.clone()))
             } else {
-                Err(EvalError::new(format!("No such variable: {}", s)))
+                Err(EvalError::msg(format!("No such variable: {}", s)))
             }
             //env.get(s).map(|x| (**x).clone()).ok_or(EvalError { msg: format!("No such variable: {}", s) })
         },
@@ -148,7 +148,7 @@ pub mod atom {
         match ps {
             [Integer(x), Integer(y)] => Ok(Integer((binary_integer[op])(*x, *y))),
             [Real(x), Real(y)] => Ok(Real((binary_real[op])(*x, *y))),
-            others => Err(EvalError::new(format!("Arith error: evaluating {:?}", others)))
+            others => Err(EvalError::msg(format!("Arith error: evaluating {:?}", others)))
         }
     }
 
@@ -158,7 +158,7 @@ pub mod atom {
         use Object::*;
         match ps {
             [x, y] => Ok(if x == y { Var("True".into()) } else { Var("False".into()) }),
-            _ => Err(EvalError::new(format!("eval_eq error: {:?}", ps)))
+            _ => Err(EvalError::msg(format!("eval_eq error: {:?}", ps)))
         }
         
     }
@@ -169,7 +169,7 @@ pub mod atom {
         use Object::*;
         match ps {
             [x, y] => Ok(if x != y { Var("True".into()) } else { Var("False".into()) }),
-            _ => Err(EvalError::new(format!("eval_ne error: {:?}", ps)))
+            _ => Err(EvalError::msg(format!("eval_ne error: {:?}", ps)))
         }
         
     }
@@ -179,7 +179,7 @@ pub mod atom {
         use Object::*;
         match ps {
             [Integer(x), Integer(y)] => Ok(if x < y { Var("True".into()) } else { Var("False".into()) }),
-            _ => Err(EvalError::new(format!("eval_lt error: {:?}", ps)))
+            _ => Err(EvalError::msg(format!("eval_lt error: {:?}", ps)))
         }
     }
 
@@ -188,7 +188,7 @@ pub mod atom {
         use Object::*;
         match ps {
             [Integer(x), Integer(y)] => Ok(if x <= y { Var("True".into()) } else { Var("False".into()) }),
-            _ => Err(EvalError::new(format!("eval_le error: {:?}", ps)))
+            _ => Err(EvalError::msg(format!("eval_le error: {:?}", ps)))
         }
     }
 
@@ -197,7 +197,7 @@ pub mod atom {
         use Object::*;
         match ps {
             [Integer(x), Integer(y)] => Ok(if x > y { Var("True".into()) } else { Var("False".into()) }),
-            _ => Err(EvalError::new(format!("eval_gt error: {:?}", ps)))
+            _ => Err(EvalError::msg(format!("eval_gt error: {:?}", ps)))
         }
     }
 
@@ -206,7 +206,7 @@ pub mod atom {
         use Object::*;
         match ps {
             [Integer(x), Integer(y)] => Ok(if x >= y { Var("True".into()) } else { Var("False".into()) }),
-            _ => Err(EvalError::new(format!("eval_ge error: {:?}", ps)))
+            _ => Err(EvalError::msg(format!("eval_ge error: {:?}", ps)))
         }
     }
 }

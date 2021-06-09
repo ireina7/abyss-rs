@@ -7,7 +7,7 @@ pub use super::object::{
     Object, Env, EvalError
 };
 pub use self::core::*;
-//use std::rc::Rc;
+use crate::utils::error::Backtrace;
 use lazy as interpreter;
 //use strict as interpreter;
 
@@ -16,13 +16,18 @@ impl Eval<Object> for Object {
     type Error = EvalError;
     fn eval(&self, env: &Env) -> std::result::Result<Object, EvalError> {
         let mut env = env.clone();
-        let expr = self.clone();
-        interpreter::evaluate(expr, &mut env)
+        let mut log = Backtrace::new();
+        let result = interpreter::evaluate(self.clone(), &mut env, &mut log);
+        //println!("{}", log);
+        match result {
+            Ok(_) => result,
+            Err(err) => Err(err.log(log))
+        }
     }
 }
 
 
-pub fn bind(left: Object, right: Object, env: &mut Env) -> Result<()> {
-    interpreter::bind(left, right, env)
+pub fn bind(left: Object, right: Object, env: &mut Env, backtrace: &mut Backtrace) -> Result<()> {
+    interpreter::bind(left, right, env, backtrace)
 }
 

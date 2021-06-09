@@ -4,6 +4,7 @@ use std::io::prelude::*;
 use std::io::{self, BufRead};
 use std::fmt;
 //use super::env::Environment;
+use crate::utils::error::Backtrace;
 use super::object::Object;
 use super::eval::{self, Eval, Env};
 
@@ -46,6 +47,7 @@ pub fn repl() -> io::Result<()> {
     let stdin = io::stdin();
     //let mut input = String::new();
     let mut env = eval::env();
+    let mut log = Backtrace::new();
     let env_repl = vec![
         ("quit" , "(lambda () (quit))"),
         ("help" , "(lambda () (help))"),
@@ -93,13 +95,13 @@ pub fn repl() -> io::Result<()> {
         let ast = line.parse::<Object>();
         //println!("{:?} =>", ast);
         let res: Result<Object, _> = ast
-            .map_err(|crate::parser::ParseError {msg, ..}| super::eval::EvalError::new(msg))
+            .map_err(|crate::parser::ParseError {msg, ..}| super::eval::EvalError::msg(msg))
             .and_then(|src| {
                 if eval::decl::is_decl(&src) { 
                     eval::decl::eval_decl(&src, &mut env).unwrap();
                     Ok(Object::Nil)
                 } else { 
-                    if eager_mode { eval::strict::evaluate(src, &mut env) } else { src.eval(&env) }
+                    if eager_mode { eval::strict::evaluate(src, &mut env, &mut log) } else { src.eval(&env) }
                 }
             });
         
