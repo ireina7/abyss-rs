@@ -33,10 +33,10 @@ fn eval_atom(op: Object, a: Object, b: Object, env: &mut Env) -> Result<Object> 
                 ">=" => eval_ge(&xs),
                 "==" => eval_eq(&xs),
                 "/=" => eval_ne(&xs),
-                unknown => Err(EvalError { msg: format!("Atom evaluation error: unknown atom operator: {:?}", unknown) })
+                unknown => Err(EvalError::new(format!("Atom evaluation error: unknown atom operator: {:?}", unknown)))
             }
         },
-        _ => Err(EvalError { msg: format!("Atom evaluation error: evaluating {:?}", op) })
+        _ => Err(EvalError::new(format!("Atom evaluation error: evaluating {:?}", op)))
     }
 }
 
@@ -50,7 +50,7 @@ fn eval_if(cond: Object, x: Object, y: Object, env: &mut Env) -> Result<Object> 
     match cond {
         Var(s) if &s[..] == "True"  => evaluate(x, env),
         Var(s) if &s[..] == "False" => evaluate(y, env),
-        _ => Err(EvalError { msg: format!("If expression error: {:?}", cond) })
+        _ => Err(EvalError::new(format!("If expression error: {:?}", cond)))
     }
 }
 
@@ -81,16 +81,16 @@ fn eval_cases(expr: Object, cases: &[Object], env: &mut Env) -> Result<Object> {
                         Some(res) => return res,
                     }
                 },
-                _ => return Err(EvalError {
-                    msg: format!("Case bindings should have format of `[pat result]`, instead of {:?}", case) 
-                }),
+                _ => return Err(EvalError::new(
+                    format!("Case bindings should have format of `[pat result]`, instead of {:?}", case) 
+                )),
             },
-            _ => return Err(EvalError { 
-                msg: format!("Case bindings should have format of `[pat result]`, instead of {:?}", case) 
-            }),
+            _ => return Err(EvalError::new(
+                format!("Case bindings should have format of `[pat result]`, instead of {:?}", case) 
+            )),
         }
     }
-    Err(EvalError { msg: format!("Case expression error") })
+    Err(EvalError::new(format!("Case expression error")))
 }
 
 
@@ -113,9 +113,9 @@ pub fn bind(left: Object, right: Object, env: &mut Env) -> Result<()> {
                 let lambda = weak(ps.to_vec(), expr.clone());
                 bind(Var(f.clone()), lambda, env)?
             },
-            _ => return Err(EvalError { msg: format!("Binding error: Invalid Binding {:?} and {:?}", List(xs), expr) })
+            _ => return Err(EvalError::new(format!("Binding error: Invalid Binding {:?} and {:?}", List(xs), expr)))
         }
-        (x, y) => return Err(EvalError { msg: format!("Binding error: Binding {:?} and {:?}", x, y) })
+        (x, y) => return Err(EvalError::new(format!("Binding error: Binding {:?} and {:?}", x, y)))
     }
     Ok(())
 }
@@ -131,9 +131,9 @@ fn bindings(bindings: &[Object], env: &mut Env) -> Result<()> {
                 [def, expr] => {
                     bind(def.clone(), expr.clone(), env)?
                 }
-                _ => return Err(EvalError { msg: format!("Binding error: {:?}", binding) })
+                _ => return Err(EvalError::new(format!("Binding error: {:?}", binding)))
             },
-            _ => return Err(EvalError { msg: format!("Binding error: {:?}", binding) })
+            _ => return Err(EvalError::new(format!("Binding error: {:?}", binding)))
         }
     }
     Ok(())
@@ -152,7 +152,7 @@ fn apply_env(f: Object, name: &Option<String>, pat: &Object, x: &Object, env: &m
         env.extend(bind);
         Ok(())
     } else {
-        Err(EvalError { msg: format!("Application error: Unification error: unifying {:?} and {:?}", pat, x) })
+        Err(EvalError::new(format!("Application error: Unification error: unifying {:?} and {:?}", pat, x)))
     }
 }
 
@@ -191,7 +191,7 @@ fn apply(f: Object, x: Object) -> Result<Object> {
                         }
                         evaluate(Object::clone(expr.borrow()), &mut env)
                     } else {
-                        Err(EvalError { msg: format!("Applying error: unexpected parameter: {}", x) })
+                        Err(EvalError::new(format!("Applying error: unexpected parameter: {}", x)))
                     },
                     [pat] => {
                         apply_env(f.clone(), name, wash_type(pat), &x, &mut env)?;
@@ -202,10 +202,10 @@ fn apply(f: Object, x: Object) -> Result<Object> {
                         Ok(Closure(None, Rc::new(List(ss.to_vec())), expr.clone(), env.clone()))
                     }
                 },
-                others => Err(EvalError { msg: format!("Function parameters should be a list instead of {:?}", others) })
+                others => Err(EvalError::new(format!("Function parameters should be a list instead of {:?}", others)))
             }
         }
-        _ => Err(EvalError { msg: format!("Function application error: {:?}", f) })
+        _ => Err(EvalError::new(format!("Function application error: {:?}", f)))
     }
 }
 
@@ -217,7 +217,7 @@ fn eval_cons(x: Object, xs: Object, env: &mut Env) -> Result<Object> {
     let xs = evaluate(xs, env)?;
     match xs {
         List(xs) => Ok(List(vec![Cons("::".into()), evaluate(x, env)?, List(xs)])),
-        _ => Err(EvalError {msg: format!("Cons error: {:?}", xs)})
+        _ => Err(EvalError::new(format!("Cons error: {:?}", xs)))
     }
 }
 
@@ -269,6 +269,8 @@ pub fn eval_thunk(thunk: Object) -> Result<Object> {
                 return Ok(thunk.value());
             }
             let mut res = evaluate(thunk.value(), &mut env)?;
+
+            // Flatten thunk, never generate recursive wrapped thunk!
             if let Thunk(_, _, _) = res {
                 res = eval_thunk(res)?;
             }
@@ -277,7 +279,7 @@ pub fn eval_thunk(thunk: Object) -> Result<Object> {
             *thunk.as_ref().expr.borrow_mut() = res;
             Ok(result)
         },
-        _ => Err(EvalError { msg: format!("Error while evaluating thunk: {:?}", thunk) })
+        _ => Err(EvalError::new(format!("Error while evaluating thunk: {:?}", thunk)))
     }
 }
 
@@ -286,7 +288,7 @@ macro_rules! get {
     ($sx: expr, $msg: expr) => {
         match $sx {
             Some(x) => Ok(x),
-            None => Err(EvalError { msg: format!("Getting {}", $msg) })
+            None => Err(EvalError::new(format!("Getting {}", $msg)))
         }
     };
 }
@@ -299,7 +301,7 @@ pub fn evaluate(expr: Object, env: &mut Env) -> Result<Object> {
     let ans = match expr {
         Nil         => Ok(Nil),
         Var(ref s) if atom::is_atom(s) => Ok(expr.clone()),
-        Var(ref s)  => env.get(s).map(|x| (**x).clone()).ok_or(EvalError { msg: format!("No such variable: {}", s) }),
+        Var(ref s)  => env.get(s).map(|x| (**x).clone()).ok_or(EvalError::new(format!("No such variable: {}", s))),
         Symbol(_)   => Ok(expr),
         Integer(_)  => Ok(expr),
         Real(_)     => Ok(expr),
@@ -313,7 +315,7 @@ pub fn evaluate(expr: Object, env: &mut Env) -> Result<Object> {
                 return Ok(List(vec![]));
             }
             match op.unwrap() {
-                Var(op) if atom::is_atom_op(&op) => {
+                Var(op) if atom::is_atom_op(&op) && it.clone().count() == 2 => {
                     let (a, b) = (
                         get!(it.next(), format!("2nd argument of function: {}", op))?,
                         get!(it.next(), format!("3rd argument of function: {}", op))?,
@@ -353,7 +355,7 @@ pub fn evaluate(expr: Object, env: &mut Env) -> Result<Object> {
                             bindings(bs, env)?;
                             evaluate(expr, env)
                         }
-                        _ => Err(EvalError { msg: format!("Wrong format of bindings: {:?}", bs) })
+                        _ => Err(EvalError::new(format!("Wrong format of bindings: {:?}", bs)))
                     }
                 },
                 Var(op) if &op[..] == "case" => {
@@ -365,7 +367,7 @@ pub fn evaluate(expr: Object, env: &mut Env) -> Result<Object> {
                         List(cases) => {
                             eval_cases(expr, cases, env)
                         }
-                        _ => Err(EvalError { msg: format!("Wrong format of cases: {:?}", cases) })
+                        _ => Err(EvalError::new(format!("Wrong format of cases: {:?}", cases)))
                     }
                 },
                 Var(op) if &op[..] == "::" => {
@@ -402,7 +404,7 @@ pub fn evaluate(expr: Object, env: &mut Env) -> Result<Object> {
                 }
             }
         },
-        _ => Err(EvalError { msg: format!("Unknow expression: {:?}", expr) })
+        _ => Err(EvalError::new(format!("Unknow expression: {:?}", expr)))
     };
     ans
 }

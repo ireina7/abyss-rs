@@ -22,8 +22,8 @@ pub fn eval_decl(decl: &Object, env: &mut Env) -> Result<()> {
         List(xs) => match &xs[..] {
             [Var(op), def, expr] if op == "define" => bind(def.clone(), expr.clone(), env),
             [Var(op), _, _] if op == "data" => todo!(),
-            _ => Err(EvalError { msg: format!("Evaluation error: wrong format of declarations: {:?}", decl) })
+            _ => Err(EvalError::new(format!("Evaluation error: wrong format of declarations: {:?}", decl)))
         }
-        _ => Err(EvalError { msg: format!("Evaluation error: wrong format of declarations: {:?}", decl) })
+        _ => Err(EvalError::new(format!("Evaluation error: wrong format of declarations: {:?}", decl)))
     }
 }

@@ -58,7 +58,7 @@ fn subst(map: &HashMap<Object, Object>, obj: &Object) -> Option<Object> {
 
 fn unify_var(var: &Object, v: &Object, unv: &mut Env) -> Result<(), UnifyError> {
     use Object::*;
-
+    //println!("Unifying var: {:?} and {}", var, v);
     match (var, v) {
         (Var(_), _) if unv.contains_key(var) => {
             let next = unv[var].clone();
@@ -68,19 +68,21 @@ fn unify_var(var: &Object, v: &Object, unv: &mut Env) -> Result<(), UnifyError> 
             let next = unv[v].clone();
             unify_objects(var, &next, unv)
         },
-        (Var(_), _) if check_occurs(var, v, unv) => 
-            Err(UnifyError { msg: format!("Unification error: check occurence error!") }),
+        (Var(_), _) if check_occurs(var, v, unv) => {
+            Err(UnifyError { msg: format!("Unification error: check occurence error!") })
+        },
         (Var(_), _) => {
             unv.insert(var.clone(), v.clone());
             Ok(())
         }
-        _ => Err(UnifyError { msg: format!("Unification error: Unifying varibles") })
+        _ => {
+            Err(UnifyError { msg: format!("Unification error: Unifying varibles") })
+        }
     }
 }
 
 fn check_occurs(v: &Object, term: &Object, unv: &Env) -> bool {
     use Object::*;
-
     if v == term {
         return true;
     }
@@ -98,7 +100,7 @@ fn check_occurs(v: &Object, term: &Object, unv: &Env) -> bool {
 
 fn unify_objects(this: &Object, other: &Object, unv: &mut Env) -> Result<(), UnifyError> {
     use Object::*;
-    //println!("Unifying: {:?} and {:?}", this, other);
+    //println!("Unifying: {:?} and {:?}", this, 0);
     match (this, other) {
         (Nil, Nil) => Ok(()),
         (Integer(x), Integer(y)) if x == y => Ok(()),
@@ -115,7 +117,7 @@ fn unify_objects(this: &Object, other: &Object, unv: &mut Env) -> Result<(), Uni
         (_, thunk @ Thunk(_, _, _)) => {
             //println!("before: {:?}", thunk);
             let v = lazy::eval_thunk(thunk.clone());
-            //println!("after: {:?}", v);
+            //println!("after: ");
             match v {
                 Ok(v) => unify_objects(this, &v, unv),
                 Err(_err) => Err(UnifyError { msg: format!("Unfinished unification error") })

@@ -3,6 +3,7 @@ use std::cmp;
 use std::hash::{ Hash, Hasher };
 //use super::config::*;
 use super::env::Environment;
+use crate::utils::error::{ Error, Backtrace };
 use std::rc::Rc;
 use std::cell::RefCell;
 
@@ -11,7 +12,18 @@ pub type Env = Environment<String, Rc<Object>>;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct EvalError {
-    pub msg: String
+    pub msg: String,
+    backtrace: Option<Backtrace>,
+}
+
+impl EvalError {
+    #[inline]
+    pub fn new(msg: String) -> Self {
+        EvalError {
+            msg: msg,
+            backtrace: None,
+        }
+    }
 }
 
 impl fmt::Display for EvalError {
@@ -19,6 +31,20 @@ impl fmt::Display for EvalError {
         write!(f, "Error: {}", self.msg)
     }
 }
+
+impl std::error::Error for EvalError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        todo!()
+    }
+}
+
+impl Error for EvalError {
+    fn backtrace(&self) -> Option<&Backtrace> {
+        self.backtrace.as_ref()
+    }
+}
+
+
 
 pub trait CustomObj: fmt::Display + fmt::Debug + CustomObjClone {
     fn eval(&self, env: &mut Env) -> Result<Object, EvalError>;

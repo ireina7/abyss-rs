@@ -93,7 +93,7 @@ pub fn repl() -> io::Result<()> {
         let ast = line.parse::<Object>();
         //println!("{:?} =>", ast);
         let res: Result<Object, _> = ast
-            .map_err(|crate::parser::ParseError {msg, ..}| super::eval::EvalError { msg })
+            .map_err(|crate::parser::ParseError {msg, ..}| super::eval::EvalError::new(msg))
             .and_then(|src| {
                 if eval::decl::is_decl(&src) { 
                     eval::decl::eval_decl(&src, &mut env).unwrap();
