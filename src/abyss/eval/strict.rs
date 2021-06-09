@@ -155,7 +155,7 @@ fn apply_env(
     if let Ok(bind) = bind {
         let bind: HashMap<String, Rc<Object>> = bind.into_iter().map(|(k, v)| (k, Rc::new(v))).collect();
         if let Some(name) = name {
-            backtrace.push(format!("Apply function: {}", name));
+            //backtrace.push(format!("Apply function: {}", name));
             env.insert(name.clone(), Rc::new(f));
         }
         env.extend(bind);
@@ -196,7 +196,7 @@ fn apply(f: Object, x: Object, backtrace: &mut Backtrace) -> Result<Object> {
                 List(ps) => match &ps[..] {
                     [ ] => if x == Nil {
                         if let Some(name) = name {
-                            backtrace.push(format!("Apply function: {}", name));
+                            //backtrace.push(format!("Apply function: {}", name));
                             env.insert(name.clone(), Rc::new(f.clone()));
                         }
                         evaluate(Object::clone(expr.borrow()), &mut env, backtrace)

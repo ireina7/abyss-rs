@@ -20,7 +20,7 @@ impl Eval<Object> for Object {
         let result = interpreter::evaluate(self.clone(), &mut env, &mut log);
         //println!("{}", log);
         match result {
-            Ok(_) => result,
+            Ok(res) => Ok(res),
             Err(err) => Err(err.log(log))
         }
     }

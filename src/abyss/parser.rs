@@ -86,6 +86,7 @@ impl Pattern {
 impl From<Object> for Pattern {
     fn from(obj: Object) -> Self {
         use Object::*;
+        #[inline]
         fn pack(obj: Object) -> Pattern {
             Pattern { expr: obj }
         }

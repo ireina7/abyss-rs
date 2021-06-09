@@ -18,12 +18,15 @@ pub struct Backtrace {
 }
 
 impl Backtrace {
+    #[inline]
     pub fn new() -> Self {
         Backtrace { trace: vec![] }
     }
+    #[inline]
     pub fn trace(&self) -> &[String] {
         &self.trace
     }
+    #[inline]
     pub fn push(&mut self, item: String) {
         self.trace.push(item);
     }

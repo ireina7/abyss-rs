@@ -138,6 +138,31 @@ impl Object {
     pub fn thunk_of(name: Option<String>, expr: Object, env: Env) -> Self {
         Self::Thunk(name, Rc::new(Thunker::new(expr)), env)
     }
+
+    #[inline]
+    pub fn is_whnf(&self) -> bool {
+        use Object::*;
+        match self {
+            List(xs) => match &xs[..] {
+                [Cons(_), ..] => true,
+                _ => false,
+            },
+            _ => false,
+        }
+    }
+
+    #[inline]
+    pub fn is_list(&self) -> bool {
+        use Object::*;
+        match self {
+            List(xs) => match &xs[..] {
+                [Cons(cons), ..] if &cons[..] == "::" => true,
+                _ => false,
+            },
+            _ => false,
+        }
+    }
+
 }
 
 
@@ -214,6 +239,7 @@ impl fmt::Display for Object {
             Integer(i) => write!(f, "{}", i),
             Real(n)    => write!(f, "{}", n),
             Str(s)     => write!(f, "\"{}\"", s),
+            _ if self.is_list() => write_list(f, self),
             List(xs)   => write!(f, "{}", format!("{}{}{}", "(", &xs.iter().map(|o| format!("{}", o)).collect::<Vec<_>>().join(" "), ")")),
             Closure(name, _, _, _) => 
                 write!(f, "<closure{}{}>", if let Some(_) = name {": "} else {""}, name.as_ref().unwrap_or(&"".to_string())),
@@ -231,6 +257,35 @@ impl Hash for Object {
         state.write(format!("{:?}", self).as_bytes());
     }
 }
+
+
+
+/// You have to make sure `xs.is_list() == true`
+#[inline]
+fn write_list(f: &mut fmt::Formatter, xs: &Object) -> fmt::Result {
+    write!(f, "(")?;
+    write_list_tailrec(xs, f)
+}
+#[inline]
+fn write_list_tailrec(xs: &Object, f: &mut fmt::Formatter) -> fmt::Result {
+    use Object::*;
+    match xs {
+        List(xs) => match &xs[..] {
+            [Cons(_), x, xs] => {
+                write!(f, " {}", x)?;
+                match xs {
+                    List(_) => write_list_tailrec(xs, f),
+                    Thunk(_, _, _) => write!(f, " ...)"),
+                    _ => write!(f, ")"),
+                }
+            },
+            [] => write!(f, ")"),
+            _ => todo!()
+        }
+        _ => todo!()
+    }
+}
+
 
 
 

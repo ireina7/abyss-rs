@@ -84,6 +84,7 @@ pub fn weak(ps: Vec<Object>, expr: Object) -> Object {
 
 
 
+
 /// Module for all atom evaluations
 /// Including:
 /// + - * / == /= < > <= >=
