@@ -3,6 +3,37 @@ Rust implementation of Abyss programming language
 
 ![Made in abyss](./img/made-in-abyss.jpg)
 
+## Getting started
+- Download or compile source code.
+- Run the program and enter repl automatically (default lazy mode).
+
+### REPL functions
+- `quit`: Quit repl
+- `help`: Get help
+- `eager`: Turn on eager mode (where strict evaluation is the default)
+- `lazy`: Turn on lazy mode (where lazy evaluation is the default)
+- `debug`: Turn on debug mode
+
+### Expressions
+- *Function application*: `(f x)`
+- *Let bindings*: `(let ((x value) (y value) ...) expression)`
+- *Lambda abstraction*: `(lambda (x y z ...) expression)`
+- *If branches*: `(if expression true-branch false-branch)`
+- *Pattern matching*: `(case expression ((case1 value) (case2 value) ...))`
+
+### Declarations
+- *Definition*: `(define x expression)` | `(define (f x y ...) expression)`
+- *Data abstraction*: `(data x)` | `(data (cons x y ..))`
+
+### Environment
+- Integers
+- Symbols
+- Strings
+- Real numbers
+- `::`: List constructor
+- `+-*/`: Arithmetic operators
+
+
 ## Features
 - Typed dynamic programming language
 - Highly configurable and scalable

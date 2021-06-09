@@ -218,13 +218,12 @@ fn apply(f: Object, x: Object, backtrace: &mut Backtrace) -> Result<Object> {
                         apply_env(f.clone(), name, wash_type(pat), &x, &mut env, backtrace)?;
                         evaluate(Object::clone(expr.borrow()), &mut env, backtrace)
                     },
-                    [pat, ss @ ..] => {
-                        /*
+                    [pat, ss @ ..] => {/*
                         if let Some(name) = name {
                             backtrace.push(format!("Apply function: {}", name));
                         }*/
                         apply_env(f.clone(), name, wash_type(pat), &x, &mut env, backtrace)?;
-                        Ok(Closure(None, Rc::new(List(ss.to_vec())), expr.clone(), env.clone()))
+                        Ok(Closure(None, Rc::new(List(ss.to_vec())), Rc::clone(expr), env.clone()))
                     }
                 },
                 others => Err(EvalError::new(format!("Function parameters should be a list instead of {:?}", others), backtrace.clone()))
@@ -237,6 +236,7 @@ fn apply(f: Object, x: Object, backtrace: &mut Backtrace) -> Result<Object> {
 
 
 /// Handle cons expression
+#[inline]
 fn eval_cons(x: Object, xs: Object, env: &mut Env) -> Result<Object> {
     use Object::*;
     //let xs = evaluate(xs, env)?;
@@ -246,6 +246,7 @@ fn eval_cons(x: Object, xs: Object, env: &mut Env) -> Result<Object> {
 }
 
 /// Handle list constructions
+#[inline]
 fn eval_list(xs: &[Object], env: &mut Env) -> Result<Object> {
     let mut v = vec![];
     for x in xs {

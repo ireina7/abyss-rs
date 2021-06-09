@@ -40,11 +40,12 @@ impl EvalError {
 
 impl fmt::Display for EvalError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let backtrace = match &self.backtrace {
+        let _backtrace = match &self.backtrace {
             None => "None".to_string(),
             Some(bt) => format!("{}", bt)
         };
-        write!(f, "Error: {}\nBacktrace:\n{}", self.msg, backtrace)
+        //write!(f, "Error: {}\nBacktrace:\n{}", self.msg, backtrace)
+        write!(f, "Error: {}", self.msg)
     }
 }
 
@@ -126,15 +127,19 @@ pub enum Object {
 }
 
 impl Object {
+    #[inline]
     pub fn closure(ps: Object, expr: Object, env: Env) -> Self {
         Self::Closure(None, Rc::new(ps), Rc::new(expr), env.clone())
     }
+    #[inline]
     pub fn closure_of(name: Option<String>, ps: Object, expr: Object, env: Env) -> Self {
         Self::Closure(name, Rc::new(ps), Rc::new(expr), env.clone())
     }
+    #[inline]
     pub fn thunk(expr: Object, env: Env) -> Self {
         Self::Thunk(None, Rc::new(Thunker::new(expr)), env)
     }
+    #[inline]
     pub fn thunk_of(name: Option<String>, expr: Object, env: Env) -> Self {
         Self::Thunk(name, Rc::new(Thunker::new(expr)), env)
     }
